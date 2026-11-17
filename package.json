@@ -1,0 +1,13 @@
+{
+  "name": "highlight-reel",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "tsx src/highlightReel.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "tsx": "4.23.15"
+  }
+}
