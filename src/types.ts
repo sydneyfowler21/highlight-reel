@@ -32,7 +32,7 @@ export type Clip = {
 
 export type Reel = {
   shareable: boolean;
-  clips: Clip[]; // What's in the reel
-  candidates: Clip[]; // Prioritized list of extra clips
+  clips: Clip[];
+  candidates: Clip[];
   capMs: number;
 };

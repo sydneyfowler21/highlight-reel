@@ -8,17 +8,16 @@ import {
 } from '../highlightReel';
 import { clip, rawMoment } from './builders';
 import * as fixtures from './fixtures';
+import * as seedGame from './seedGame';
 import { PlayType, type RawMoment } from '../types';
 
-// A valid moment with one required field removed.
 function withoutField(field: keyof RawMoment): RawMoment {
   const moment: Partial<RawMoment> = rawMoment(PlayType.Goal, 100_000, 200_000);
   delete moment[field];
   return moment as RawMoment;
 }
 
-// Player order after a merge is unspecified, so compare players as sets.
-function sortPlayers<T extends { players: string[] }>(items: T[]): T[] {
+function ignoringPlayerOrder<T extends { players: string[] }>(items: T[]): T[] {
   return items.map((item) => ({ ...item, players: [...item.players].sort() }));
 }
 
@@ -114,11 +113,8 @@ describe('filterRawMoments', () => {
     },
   );
 
-  // Fails today: the filter never checks confidence or players exists, and a
-  // moment with no players crashes mergeRawMoments. Change to `it.each` once
-  // the filter is fixed.
   it.failing.each(['confidence', 'players'] as const)(
-    'A moment missing %s is skipped',
+    'A moment missing %s is skipped (known bug: the filter never checks that it exists)',
     (field) => {
       expect(
         filterRawMoments(fixtures.recording10min, [withoutField(field)]),
@@ -126,10 +122,8 @@ describe('filterRawMoments', () => {
     },
   );
 
-  // Fails today: typeof NaN is 'number' and every comparison with NaN is
-  // false, so NaN gets past each check. Change to `it.each` once fixed.
   it.failing.each(['startMs', 'endMs', 'confidence'] as const)(
-    'A moment with a NaN %s is skipped',
+    'A moment with a NaN %s is skipped (known bug: NaN passes the typeof check and every comparison)',
     (field) => {
       expect(
         filterRawMoments(fixtures.recording10min, [
@@ -173,7 +167,7 @@ describe('mergeRawMoments', () => {
 
   it('Overlapping same-type moments become one play', () => {
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([fixtures.overlapGoalA, fixtures.overlapGoalB]),
       ),
     ).toEqual([
@@ -186,7 +180,7 @@ describe('mergeRawMoments', () => {
 
   it('A same-type moment fully inside another is merged into it', () => {
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           rawMoment(PlayType.Goal, 10_000, 50_000, { confidence: 0.7 }),
           rawMoment(PlayType.Goal, 20_000, 30_000, {
@@ -203,10 +197,9 @@ describe('mergeRawMoments', () => {
     ]);
   });
 
-  it('A chain of overlapping same-type moments becomes one play', () => {
-    // A overlaps B and B overlaps C, but A and C do not overlap each other.
+  it('A chain of same-type moments becomes one play even when only neighbors overlap', () => {
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           rawMoment(PlayType.Goal, 10_000, 20_000, { confidence: 0.5 }),
           rawMoment(PlayType.Goal, 18_000, 30_000, {
@@ -229,7 +222,7 @@ describe('mergeRawMoments', () => {
 
   it('Input order does not change the result', () => {
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([fixtures.overlapGoalB, fixtures.overlapGoalA]),
       ),
     ).toEqual([
@@ -242,7 +235,9 @@ describe('mergeRawMoments', () => {
 
   it('Same-type moments that touch (gap 0) are one play', () => {
     expect(
-      sortPlayers(mergeRawMoments([fixtures.mergeGoalA, fixtures.touchB])),
+      ignoringPlayerOrder(
+        mergeRawMoments([fixtures.mergeGoalA, fixtures.touchB]),
+      ),
     ).toEqual([
       rawMoment(PlayType.Goal, 10_000, 30_000, {
         players: ['p1', 'p2'],
@@ -253,7 +248,9 @@ describe('mergeRawMoments', () => {
 
   it('Same-type moments exactly 1s apart are one play', () => {
     expect(
-      sortPlayers(mergeRawMoments([fixtures.mergeGoalA, fixtures.gap1sB])),
+      ignoringPlayerOrder(
+        mergeRawMoments([fixtures.mergeGoalA, fixtures.gap1sB]),
+      ),
     ).toEqual([
       rawMoment(PlayType.Goal, 10_000, 30_000, {
         players: ['p1', 'p2'],
@@ -264,7 +261,7 @@ describe('mergeRawMoments', () => {
 
   it('Same-type moments 0.5s apart are one play', () => {
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           rawMoment(PlayType.Save, 10_000, 20_000, {
             players: ['p4'],
@@ -286,7 +283,7 @@ describe('mergeRawMoments', () => {
 
   it('A chain of same-type moments each 1s apart becomes one play', () => {
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
           rawMoment(PlayType.Goal, 2_000, 2_500, {
@@ -308,20 +305,21 @@ describe('mergeRawMoments', () => {
   });
 
   it('The 1s gap is measured from the end of the merged play, not the previous moment', () => {
-    // The third goal starts 0.8s after the merged play ends at 10s, but 7.8s
-    // after the contained 2–3s goal.
+    const longGoal = rawMoment(PlayType.Goal, 0, 10_000, { confidence: 0.5 });
+    const goalInsideLongGoal = rawMoment(PlayType.Goal, 2_000, 3_000, {
+      players: ['p2'],
+      confidence: 0.7,
+    });
+    const goalUnder1sAfterLongGoal = rawMoment(PlayType.Goal, 10_800, 12_000, {
+      players: ['p3'],
+      confidence: 0.6,
+    });
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
-          rawMoment(PlayType.Goal, 0, 10_000, { confidence: 0.5 }),
-          rawMoment(PlayType.Goal, 2_000, 3_000, {
-            players: ['p2'],
-            confidence: 0.7,
-          }),
-          rawMoment(PlayType.Goal, 10_800, 12_000, {
-            players: ['p3'],
-            confidence: 0.6,
-          }),
+          longGoal,
+          goalInsideLongGoal,
+          goalUnder1sAfterLongGoal,
         ]),
       ),
     ).toEqual([
@@ -358,9 +356,8 @@ describe('mergeRawMoments', () => {
   });
 
   it('Overlapping same-type moments merge when another type starts between them', () => {
-    // Sorted by start: goal 0:10, save 0:15, goal 0:18.
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           fixtures.mergeGoalA,
           fixtures.interleaveSave,
@@ -377,9 +374,8 @@ describe('mergeRawMoments', () => {
   });
 
   it('Same-type moments within 1s merge when another type starts in the gap', () => {
-    // The save starts in the 800ms gap between the two goals.
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           fixtures.mergeGoalA,
           fixtures.interleaveGapSave,
@@ -397,7 +393,7 @@ describe('mergeRawMoments', () => {
 
   it('Input order does not change an interleaved merge', () => {
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           fixtures.interleaveGoalB,
           fixtures.interleaveSave,
@@ -414,9 +410,8 @@ describe('mergeRawMoments', () => {
   });
 
   it('Two interleaved plays of different types each merge into one play', () => {
-    // Goal, save, goal, save: each type overlaps its own earlier detection.
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           rawMoment(PlayType.Goal, 10_000, 20_000, { confidence: 0.6 }),
           rawMoment(PlayType.Save, 12_000, 22_000, {
@@ -464,7 +459,7 @@ describe('mergeRawMoments', () => {
 
   it('A moment is compared with the latest play of its type', () => {
     expect(
-      sortPlayers(
+      ignoringPlayerOrder(
         mergeRawMoments([
           rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
           rawMoment(PlayType.Goal, 5_000, 6_000, {
@@ -602,15 +597,16 @@ describe('convertToClips', () => {
     expect(result.players).not.toBe(moment.players);
   });
 
-  // Fails today: ids are clip-<paddedStart>, so two clips that both clamp to
-  // 0:00 are both clip-0. Change to `it` once ids are made unique.
-  it.failing('Clips that clamp to the same start still get unique ids', () => {
-    const clips = convertToClips(fixtures.recording10min, [
-      rawMoment(PlayType.Save, 1_000, 4_000),
-      rawMoment(PlayType.Goal, 500, 3_000),
-    ]);
-    expect(new Set(clips.map((c) => c.id)).size).toBe(clips.length);
-  });
+  it.failing(
+    'Clips that clamp to the same start still get unique ids (known bug: ids are clip-<paddedStart>)',
+    () => {
+      const clips = convertToClips(fixtures.recording10min, [
+        rawMoment(PlayType.Save, 1_000, 4_000),
+        rawMoment(PlayType.Goal, 500, 3_000),
+      ]);
+      expect(new Set(clips.map((c) => c.id)).size).toBe(clips.length);
+    },
+  );
 });
 
 describe('selectClips', () => {
@@ -683,7 +679,7 @@ describe('selectClips', () => {
   });
 
   it('Clips that touch end to start do not overlap and are both selected', () => {
-    // goal20sA ends at 0:20 and laterSkill starts at 0:20.
+    expect(fixtures.goal20sA.endMs).toBe(fixtures.laterSkill.startMs);
     expect(selectClips([fixtures.goal20sA, fixtures.laterSkill])).toEqual([
       [fixtures.goal20sA, fixtures.laterSkill],
       [],
@@ -706,15 +702,15 @@ describe('selectClips', () => {
 
 describe('buildReel', () => {
   it('A full game of raw moments becomes a sorted, unshareable reel within the 60s cap', () => {
-    const reel = buildReel(fixtures.seedRecording, fixtures.seedRawMoments);
+    const reel = buildReel(seedGame.recording, seedGame.rawMoments);
     expect({
       ...reel,
-      clips: sortPlayers(reel.clips),
-      candidates: sortPlayers(reel.candidates),
+      clips: ignoringPlayerOrder(reel.clips),
+      candidates: ignoringPlayerOrder(reel.candidates),
     }).toEqual({
-      ...fixtures.expectedReel,
-      clips: sortPlayers(fixtures.expectedReel.clips),
-      candidates: sortPlayers(fixtures.expectedReel.candidates),
+      ...seedGame.expectedReel,
+      clips: ignoringPlayerOrder(seedGame.expectedReel.clips),
+      candidates: ignoringPlayerOrder(seedGame.expectedReel.candidates),
     });
   });
 
@@ -725,6 +721,39 @@ describe('buildReel', () => {
       candidates: [],
       capMs: 60_000,
     });
+  });
+
+  it('Candidates are ranked by play type, then confidence', () => {
+    expect(
+      buildReel(fixtures.recording10min, [
+        rawMoment(PlayType.NearMiss, 100_000, 110_000, {
+          players: ['p12'],
+          confidence: 0.99,
+        }),
+        rawMoment(PlayType.Skill, 200_000, 210_000, {
+          players: ['p10'],
+          confidence: 0.5,
+        }),
+        rawMoment(PlayType.Goal, 0, 50_000),
+        rawMoment(PlayType.Skill, 300_000, 310_000, {
+          players: ['p11'],
+          confidence: 0.8,
+        }),
+      ]).candidates,
+    ).toEqual([
+      clip('clip-298000', PlayType.Skill, 298_000, 313_000, {
+        players: ['p11'],
+        confidence: 0.8,
+      }),
+      clip('clip-198000', PlayType.Skill, 198_000, 213_000, {
+        players: ['p10'],
+        confidence: 0.5,
+      }),
+      clip('clip-98000', PlayType.NearMiss, 98_000, 113_000, {
+        players: ['p12'],
+        confidence: 0.99,
+      }),
+    ]);
   });
 
   it('Selected clips are sorted by start time', () => {
