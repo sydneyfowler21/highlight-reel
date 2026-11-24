@@ -5,7 +5,6 @@ import {
   filterRawMoments,
   mergeRawMoments,
   selectClips,
-  type UncheckedRecording,
 } from '../highlightReel';
 import { clip, rawMoment } from './builders';
 import * as fixtures from './fixtures';
@@ -20,21 +19,13 @@ function withoutField(field: keyof RawMoment): Partial<RawMoment> {
 
 const invalidDurations = [[NaN], [Infinity], [-Infinity], [-1], [0]];
 
-const invalidIds: [unknown][] = [
-  [2 ** 53],
-  [NaN],
-  [Infinity],
-  [1.5],
-  [undefined],
-  [null],
-  ['1'],
-];
+const invalidIds = [[2 ** 53], [NaN], [Infinity], [1.5]];
 
 function recordingLasting(durationMs: number): Recording {
   return { ...fixtures.recording10min, durationMs };
 }
 
-function recordingWithId(id: unknown): UncheckedRecording {
+function recordingWithId(id: number): Recording {
   return { ...fixtures.recording10min, id };
 }
 
@@ -882,29 +873,17 @@ describe('buildReel', () => {
     },
   );
 
-  it('A recording with no id throws instead of keeping moments that have no recordingId', () => {
-    expect(() =>
-      buildReel(recordingWithId(undefined), [withoutField('recordingId')]),
-    ).toThrow('Expected recording.id to be a safe integer, got undefined');
+  it('The error names the invalid id', () => {
+    expect(() => buildReel(recordingWithId(1.5), [])).toThrow(
+      'Expected recording.id to be a safe integer, got 1.5',
+    );
   });
 
-  it('The error for an id of "1" names its type', () => {
-    expect(() => buildReel(recordingWithId('1'), [])).toThrow('got string "1"');
+  it('The error names the invalid durationMs', () => {
+    expect(() => buildReel(recordingLasting(NaN), [])).toThrow(
+      'Expected recording.durationMs to be a finite number above 0, got NaN',
+    );
   });
-
-  it.each([
-    [NaN, 'got NaN'],
-    ['600000', 'got string "600000"'],
-    [null, 'got object null'],
-    [undefined, 'got undefined'],
-  ])(
-    'The error for a durationMs of %p says %p',
-    (durationMs, expectedMessage) => {
-      expect(() => buildReel({ id: 1, durationMs }, [])).toThrow(
-        expectedMessage,
-      );
-    },
-  );
 
   it('Selected clips are sorted by start time', () => {
     expect(

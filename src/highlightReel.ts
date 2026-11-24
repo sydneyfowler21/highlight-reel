@@ -10,11 +10,7 @@ import {
 export { PlayType } from './types';
 export type { Clip, RawMoment, Recording, Reel } from './types';
 
-type Unchecked<Checked> = { [Field in keyof Checked]?: unknown };
-
-type UncheckedMoment = Unchecked<RawMoment>;
-
-export type UncheckedRecording = Unchecked<Recording>;
+type UncheckedMoment = { [Field in keyof RawMoment]?: unknown };
 
 type CheckedFields<Field extends keyof RawMoment> = UncheckedMoment &
   Pick<RawMoment, Field>;
@@ -59,28 +55,15 @@ function isKnownPlayType(type: unknown): type is PlayType {
   return PLAY_TYPES.has(type);
 }
 
-function describeValue(value: unknown): string {
-  if (typeof value === 'number' || value === undefined) {
-    return String(value);
-  }
-  return `${typeof value} ${JSON.stringify(value)}`;
-}
-
-function assertValidRecording(
-  recording: UncheckedRecording,
-): asserts recording is Recording {
+function assertValidRecording(recording: Recording): void {
   if (!Number.isSafeInteger(recording.id)) {
     throw new RangeError(
-      `Expected recording.id to be a safe integer, got ${describeValue(recording.id)}`,
+      `Expected recording.id to be a safe integer, got ${recording.id}`,
     );
   }
-  if (
-    typeof recording.durationMs !== 'number' ||
-    !Number.isFinite(recording.durationMs) ||
-    recording.durationMs <= 0
-  ) {
+  if (!Number.isFinite(recording.durationMs) || recording.durationMs <= 0) {
     throw new RangeError(
-      `Expected recording.durationMs to be a finite number above 0, got ${describeValue(recording.durationMs)}`,
+      `Expected recording.durationMs to be a finite number above 0, got ${recording.durationMs}`,
     );
   }
 }
@@ -195,10 +178,7 @@ export function selectClips(clips: Clip[]): [Clip[], Clip[]] {
   return [selectedClips, extraClips];
 }
 
-export function buildReel(
-  recording: UncheckedRecording,
-  rawMoments: unknown[],
-): Reel {
+export function buildReel(recording: Recording, rawMoments: unknown[]): Reel {
   assertValidRecording(recording);
   const filteredMoments = filterRawMoments(recording, rawMoments);
   const mergedMoments = mergeRawMoments(filteredMoments);
