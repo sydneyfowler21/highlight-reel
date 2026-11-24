@@ -63,6 +63,11 @@ function describeValue(value: unknown): string {
 }
 
 function assertValidRecording(recording: Recording): void {
+  if (!Number.isInteger(recording.id)) {
+    throw new RangeError(
+      `Expected recording.id to be an integer, got ${describeValue(recording.id)}`,
+    );
+  }
   if (!Number.isFinite(recording.durationMs) || recording.durationMs <= 0) {
     throw new RangeError(
       `Expected recording.durationMs to be a finite number above 0, got ${describeValue(recording.durationMs)}`,

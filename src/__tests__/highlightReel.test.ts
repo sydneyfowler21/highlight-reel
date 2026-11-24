@@ -19,8 +19,21 @@ function withoutField(field: keyof RawMoment): Partial<RawMoment> {
 
 const invalidDurations = [[NaN], [Infinity], [-Infinity], [-1], [0]];
 
+const invalidIds: [unknown][] = [
+  [NaN],
+  [Infinity],
+  [1.5],
+  [undefined],
+  [null],
+  ['1'],
+];
+
 function recordingLasting(durationMs: number): Recording {
   return { ...fixtures.recording10min, durationMs };
+}
+
+function recordingWithId(id: unknown): Recording {
+  return { ...fixtures.recording10min, id } as unknown as Recording;
 }
 
 function ignoringPlayerOrder<T extends { players: string[] }>(items: T[]): T[] {
@@ -193,6 +206,25 @@ describe('filterRawMoments', () => {
   it('A 1ms recording is valid and keeps a moment that fills it', () => {
     const moment = rawMoment(PlayType.Goal, 0, 1);
     expect(filterRawMoments(recordingLasting(1), [moment])).toEqual([moment]);
+  });
+
+  it.each(invalidIds)('A recording with an id of %p throws', (id) => {
+    expect(() =>
+      filterRawMoments(recordingWithId(id), [fixtures.validSave]),
+    ).toThrow(RangeError);
+  });
+
+  it('A moment with no recordingId is skipped', () => {
+    expect(
+      filterRawMoments(fixtures.recording10min, [withoutField('recordingId')]),
+    ).toEqual([]);
+  });
+
+  it('A recording with an id of 0 keeps its moments', () => {
+    const moment = rawMoment(PlayType.Goal, 100_000, 104_000, {
+      recordingId: 0,
+    });
+    expect(filterRawMoments(recordingWithId(0), [moment])).toEqual([moment]);
   });
 });
 
@@ -856,6 +888,23 @@ describe('buildReel', () => {
 
   it('A recording with a NaN durationMs throws even with no moments', () => {
     expect(() => buildReel(recordingLasting(NaN), [])).toThrow(RangeError);
+  });
+
+  it.each(invalidIds)(
+    'A recording with an id of %p throws even with no moments',
+    (id) => {
+      expect(() => buildReel(recordingWithId(id), [])).toThrow(RangeError);
+    },
+  );
+
+  it('A recording with no id does not keep moments that have no recordingId', () => {
+    expect(() =>
+      buildReel(recordingWithId(undefined), [withoutField('recordingId')]),
+    ).toThrow('Expected recording.id to be an integer, got undefined');
+  });
+
+  it('The error for an id of "1" names its type', () => {
+    expect(() => buildReel(recordingWithId('1'), [])).toThrow('got string "1"');
   });
 
   it.each([
