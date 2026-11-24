@@ -445,6 +445,59 @@ describe('mergeRawMoments', () => {
     ]);
   });
 
+  it('Merging does not change the input moments', () => {
+    const input = [
+      fixtures.mergeGoalA,
+      fixtures.interleaveSave,
+      fixtures.interleaveGoalB,
+    ].map((moment) => structuredClone(moment));
+    const original = structuredClone(input);
+    // Frozen inputs make any in-place edit throw.
+    for (const moment of input) {
+      Object.freeze(moment.players);
+      Object.freeze(moment);
+    }
+    Object.freeze(input);
+
+    mergeRawMoments(input);
+    expect(input).toEqual(original);
+  });
+
+  it('A moment is compared with the latest play of its type', () => {
+    // The third goal is 0.5s after the second, but 5.5s after the first.
+    expect(
+      sortPlayers(
+        mergeRawMoments([
+          rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
+          rawMoment(PlayType.Goal, 5_000, 6_000, {
+            players: ['p2'],
+            confidence: 0.7,
+          }),
+          rawMoment(PlayType.Goal, 6_500, 7_000, {
+            players: ['p3'],
+            confidence: 0.6,
+          }),
+        ]),
+      ),
+    ).toEqual([
+      rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
+      rawMoment(PlayType.Goal, 5_000, 7_000, {
+        players: ['p2', 'p3'],
+        confidence: 0.7,
+      }),
+    ]);
+  });
+
+  it('Another type in the gap does not link same-type moments more than 1s apart', () => {
+    const gapSave = rawMoment(PlayType.Save, 20_500, 21_500, {
+      players: ['p4'],
+      confidence: 0.7,
+    });
+    expect(
+      mergeRawMoments([fixtures.mergeGoalA, gapSave, fixtures.gap1001B]),
+    ).toEqual([fixtures.mergeGoalA, gapSave, fixtures.gap1001B]);
+  });
+
   it('Different-type moments within 1s never merge', () => {
     expect(
       mergeRawMoments([

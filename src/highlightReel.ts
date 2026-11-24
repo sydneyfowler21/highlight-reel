@@ -36,25 +36,25 @@ export function filterRawMoments(
 export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
   const sortedMoments = [...rawMoments].sort((a, b) => a.startMs - b.startMs);
   const mergedMoments: RawMoment[] = [];
-  const latestMomentByType = new Map<PlayType, RawMoment>();
+  const latestByType = new Map<PlayType, RawMoment>();
 
   for (const moment of sortedMoments) {
-    const momentToCompare = latestMomentByType.get(moment.type);
+    const latestOfType = latestByType.get(moment.type);
     if (
-      momentToCompare &&
-      moment.startMs - consts.MERGE_GAP_MS <= momentToCompare.endMs
+      latestOfType &&
+      moment.startMs - consts.MERGE_GAP_MS <= latestOfType.endMs
     ) {
-      momentToCompare.endMs = Math.max(momentToCompare.endMs, moment.endMs);
-      momentToCompare.confidence = Math.max(
-        momentToCompare.confidence,
+      latestOfType.endMs = Math.max(latestOfType.endMs, moment.endMs);
+      latestOfType.confidence = Math.max(
+        latestOfType.confidence,
         moment.confidence,
       );
-      momentToCompare.players = [
-        ...new Set([...momentToCompare.players, ...moment.players]),
+      latestOfType.players = [
+        ...new Set([...latestOfType.players, ...moment.players]),
       ];
     } else {
       const merged = { ...moment };
-      latestMomentByType.set(moment.type, merged);
+      latestByType.set(moment.type, merged);
       mergedMoments.push(merged);
     }
   }
