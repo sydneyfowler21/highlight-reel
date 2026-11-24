@@ -2,3 +2,5 @@
 /tsconfig.json @sydneyfowler21
 /package.json @sydneyfowler21
 /.github/ @sydneyfowler21
+/jest.config.cjs @sydneyfowler21
+/.prettierrc* @sydneyfowler21

@@ -15,6 +15,7 @@ function importDeclarationWithMoreNamedValueImportsThan(limit) {
 const noComments = {
   meta: {
     type: 'problem',
+    schema: [],
     messages: {
       noComment:
         'Comments are not allowed. Express intent through naming, structure, or tests.',

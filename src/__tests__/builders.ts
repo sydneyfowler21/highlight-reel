@@ -1,7 +1,11 @@
 import { type PlayType, type Clip, type RawMoment } from '../types';
 
 export function at(gameClock: string): number {
-  const [minutes, seconds] = gameClock.split(':').map(Number);
+  const minutesAndSeconds = /^(\d+):([0-5]\d)$/.exec(gameClock);
+  if (!minutesAndSeconds) {
+    throw new Error(`Expected a game clock like '8:30', got '${gameClock}'`);
+  }
+  const [, minutes, seconds] = minutesAndSeconds.map(Number);
   return (minutes * 60 + seconds) * 1000;
 }
 

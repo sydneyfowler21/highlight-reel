@@ -114,7 +114,7 @@ describe('filterRawMoments', () => {
   );
 
   it.failing.each(['confidence', 'players'] as const)(
-    'A moment missing %s is skipped (known bug: the filter never checks that it exists)',
+    'A moment missing %s is skipped (known bug: the filter never checks that it exists, and a moment with no players crashes the merge)',
     (field) => {
       expect(
         filterRawMoments(fixtures.recording10min, [withoutField(field)]),
