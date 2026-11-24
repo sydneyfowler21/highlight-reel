@@ -20,6 +20,7 @@ function withoutField(field: keyof RawMoment): Partial<RawMoment> {
 const invalidDurations = [[NaN], [Infinity], [-Infinity], [-1], [0]];
 
 const invalidIds: [unknown][] = [
+  [2 ** 53],
   [NaN],
   [Infinity],
   [1.5],
@@ -678,6 +679,12 @@ describe('convertToClips', () => {
     },
   );
 
+  it.each(invalidIds)('A recording with an id of %p throws', (id) => {
+    expect(() =>
+      convertToClips(recordingWithId(id), [fixtures.validSave]),
+    ).toThrow(RangeError);
+  });
+
   it('Padding after a moment in a 1ms recording clamps to 1ms', () => {
     expect(
       convertToClips(recordingLasting(1), [rawMoment(PlayType.Goal, 0, 1)]),
@@ -897,10 +904,10 @@ describe('buildReel', () => {
     },
   );
 
-  it('A recording with no id does not keep moments that have no recordingId', () => {
+  it('A recording with no id throws instead of keeping moments that have no recordingId', () => {
     expect(() =>
       buildReel(recordingWithId(undefined), [withoutField('recordingId')]),
-    ).toThrow('Expected recording.id to be an integer, got undefined');
+    ).toThrow('Expected recording.id to be a safe integer, got undefined');
   });
 
   it('The error for an id of "1" names its type', () => {

@@ -6,7 +6,7 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 
 ## Rules
 
-- Throw a `RangeError` when the recording's id is not an integer or its duration is not a finite number above 0. A NaN id would drop every moment, an undefined id would keep moments that have no recording id, a NaN duration would drop every moment, and an infinite one would let clip ends run forever.
+- Throw a `RangeError` when the recording's id is not a safe integer or its duration is not a finite number above 0. A NaN id would drop every moment, an id above 2^53 could match a different recording's id, an undefined id would keep moments that have no recording id, a NaN duration would drop every moment, and an infinite one would let clip ends run forever.
 - Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
 - Two raw moments are the same play when they share a recording, have the same play type, and their time ranges overlap or are within one second of each other. Merge those moments into one: earliest start, latest end, highest confidence, and the combined player list.
 - Add two seconds of padding before each merged moment and three seconds after it, then clamp the result so a clip never starts before 0:00 and never ends after the recording does.

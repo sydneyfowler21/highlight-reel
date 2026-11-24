@@ -63,9 +63,9 @@ function describeValue(value: unknown): string {
 }
 
 function assertValidRecording(recording: Recording): void {
-  if (!Number.isInteger(recording.id)) {
+  if (!Number.isSafeInteger(recording.id)) {
     throw new RangeError(
-      `Expected recording.id to be an integer, got ${describeValue(recording.id)}`,
+      `Expected recording.id to be a safe integer, got ${describeValue(recording.id)}`,
     );
   }
   if (!Number.isFinite(recording.durationMs) || recording.durationMs <= 0) {
