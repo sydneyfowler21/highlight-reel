@@ -1,105 +1,73 @@
 /**
- * Fixtures for highlight-reel tests.
+ * Named test data for highlight-reel tests. Import as
+ * `import * as fixtures from './fixtures'`.
  */
 
-import {
-  PlayType,
-  type Clip,
-  type RawMoment,
-  type Recording,
-  type Reel,
-} from '../types';
-
-// --- Fixture helpers (data constructors only) -----------------------------
+import { clip, rawMoment } from './builders';
+import { PlayType, type RawMoment, type Recording, type Reel } from '../types';
 
 export const recording10min: Recording = { id: 1, durationMs: 600_000 };
 
-export function rawMoment(
-  type: PlayType,
-  startMs: number,
-  endMs: number,
-  extra: Partial<RawMoment> = {},
-): RawMoment {
-  return {
-    recordingId: 1,
-    type,
-    startMs,
-    endMs,
-    confidence: 0.9,
-    players: ['p1'],
-    ...extra,
-  };
-}
+// --- Raw moment fixtures --------------------------------------------------
 
-export function clip(
-  id: string,
-  type: PlayType,
-  startMs: number,
-  endMs: number,
-  extra: Partial<Clip> = {},
-): Clip {
-  return {
-    id,
-    type,
-    startMs,
-    endMs,
-    confidence: 0.9,
-    players: ['p1'],
-    status: 'pending',
-    ...extra,
-  };
-}
+// Valid mid-recording moment: 2:00–2:04.
+export const validSave = rawMoment(PlayType.Save, 120_000, 124_000, {
+  players: ['p5'],
+  confidence: 0.92,
+});
 
-// --- Named fixtures -------------------------------------------------------
+// Merge: overlapping goals (current merge already handles this).
+export const overlapGoalA = rawMoment(PlayType.Goal, 58_000, 62_000, {
+  players: ['p1', 'p3'],
+  confidence: 0.8,
+});
+export const overlapGoalB = rawMoment(PlayType.Goal, 60_000, 65_000, {
+  players: ['p1', 'p2'],
+  confidence: 0.95,
+});
 
-export const fixtures = {
-  // Valid mid-recording moment: 2:00–2:04.
-  validSave: rawMoment(PlayType.Save, 120_000, 124_000, {
-    players: ['p5'],
-    confidence: 0.92,
-  }),
+// Merge: first goal (0:10–0:20) of the gap, touch, and interleave pairs.
+export const mergeGoalA = rawMoment(PlayType.Goal, 10_000, 20_000, {
+  confidence: 0.8,
+});
 
-  // Merge: overlapping goals (current merge already handles this).
-  overlapGoalA: rawMoment(PlayType.Goal, 58_000, 62_000, {
-    players: ['p1', 'p3'],
-    confidence: 0.8,
-  }),
-  overlapGoalB: rawMoment(PlayType.Goal, 60_000, 65_000, {
-    players: ['p1', 'p2'],
-    confidence: 0.95,
-  }),
+// Same type, gap 1001ms after mergeGoalA.
+export const gap1001B = rawMoment(PlayType.Goal, 21_001, 30_000, {
+  players: ['p2'],
+});
 
-  // Merge: first goal (0:10–0:20) of the gap, touch, and interleave pairs below.
-  mergeGoalA: rawMoment(PlayType.Goal, 10_000, 20_000, { confidence: 0.8 }),
+// --- Saved for the 1s merge-gap and interleaved-merge fixes ---------------
+// Not used by any test yet. Each pairs with mergeGoalA, and their tests
+// will be added with those fixes.
 
-  // Same type, gap exactly 1000ms after mergeGoalA.
-  gap1sB: rawMoment(PlayType.Goal, 21_000, 30_000, { players: ['p2'] }),
+// Same type, gap exactly 1000ms after mergeGoalA.
+export const gap1sB = rawMoment(PlayType.Goal, 21_000, 30_000, {
+  players: ['p2'],
+});
 
-  // Same type, gap 1001ms after mergeGoalA.
-  gap1001B: rawMoment(PlayType.Goal, 21_001, 30_000, { players: ['p2'] }),
+// Same type, touching mergeGoalA (gap 0).
+export const touchB = rawMoment(PlayType.Goal, 20_000, 30_000, {
+  players: ['p2'],
+});
 
-  // Same type, touching mergeGoalA (gap 0).
-  touchB: rawMoment(PlayType.Goal, 20_000, 30_000, { players: ['p2'] }),
+// Interleaved: a save between mergeGoalA and an overlapping goal.
+export const interleaveSave = rawMoment(PlayType.Save, 15_000, 25_000, {
+  players: ['p2'],
+  confidence: 0.7,
+});
+export const interleaveGoalB = rawMoment(PlayType.Goal, 18_000, 28_000, {
+  players: ['p3'],
+  confidence: 0.95,
+});
 
-  // Interleaved: a save between mergeGoalA and an overlapping goal.
-  interleaveSave: rawMoment(PlayType.Save, 15_000, 25_000, {
-    players: ['p2'],
-    confidence: 0.7,
-  }),
-  interleaveGoalB: rawMoment(PlayType.Goal, 18_000, 28_000, {
-    players: ['p3'],
-    confidence: 0.95,
-  }),
-
-  // Interleaved: a save in the 800ms gap between mergeGoalA and the next goal.
-  interleaveGapSave: rawMoment(PlayType.Save, 20_500, 25_000, {
-    players: ['p2'],
-    confidence: 0.7,
-  }),
-  interleaveGapGoalB: rawMoment(PlayType.Goal, 20_800, 30_000, {
-    players: ['p3'],
-  }),
-};
+// Interleaved: a save in the 800ms gap between mergeGoalA and the next goal.
+export const interleaveGapSave = rawMoment(PlayType.Save, 20_500, 25_000, {
+  players: ['p2'],
+  confidence: 0.7,
+});
+export const interleaveGapGoalB = rawMoment(PlayType.Goal, 20_800, 30_000, {
+  players: ['p3'],
+});
 
 // --- Clip fixtures for selection ------------------------------------------
 
@@ -165,7 +133,7 @@ export const underCapSkill = clip(
   },
 );
 
-// --- Seed scenario (buildReel happy path) ---------------------------
+// --- Seed scenario (buildReel full game) ---------------------------------
 
 export const seedRecording: Recording = recording10min;
 

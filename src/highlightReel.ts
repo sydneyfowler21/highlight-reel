@@ -1,5 +1,14 @@
 import * as consts from './consts';
-import { PlayType, Clip, RawMoment, Recording, Reel } from './types';
+import {
+  PlayType,
+  type Clip,
+  type RawMoment,
+  type Recording,
+  type Reel,
+} from './types';
+
+export { PlayType } from './types';
+export type { Clip, RawMoment, Recording, Reel } from './types';
 
 export function filterRawMoments(
   recording: Recording,
