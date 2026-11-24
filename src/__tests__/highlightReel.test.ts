@@ -113,8 +113,8 @@ describe('filterRawMoments', () => {
     },
   );
 
-  it.failing.each(['confidence', 'players'] as const)(
-    'A moment missing %s is skipped (known bug: the filter never checks that it exists, and a moment with no players crashes the merge)',
+  it.each(['confidence', 'players'] as const)(
+    'A moment missing %s is skipped',
     (field) => {
       expect(
         filterRawMoments(fixtures.recording10min, [withoutField(field)]),
@@ -122,8 +122,8 @@ describe('filterRawMoments', () => {
     },
   );
 
-  it.failing.each(['startMs', 'endMs', 'confidence'] as const)(
-    'A moment with a NaN %s is skipped (known bug: NaN passes the typeof check and every comparison)',
+  it.each(['startMs', 'endMs', 'confidence'] as const)(
+    'A moment with a NaN %s is skipped',
     (field) => {
       expect(
         filterRawMoments(fixtures.recording10min, [
@@ -754,6 +754,40 @@ describe('buildReel', () => {
         confidence: 0.99,
       }),
     ]);
+  });
+
+  it('A moment with no players is skipped instead of crashing the merge', () => {
+    const goalWithoutPlayers = withoutField('players');
+    const overlappingGoal = rawMoment(PlayType.Goal, 190_000, 195_000);
+    expect(
+      buildReel(fixtures.recording10min, [goalWithoutPlayers, overlappingGoal]),
+    ).toEqual({
+      shareable: false,
+      clips: [clip('clip-188000', PlayType.Goal, 188_000, 198_000)],
+      candidates: [],
+      capMs: 60_000,
+    });
+  });
+
+  it('Moments with NaN times or confidence are skipped and the rest of the reel is built', () => {
+    expect(
+      buildReel(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, NaN, 50_000),
+        rawMoment(PlayType.Goal, 300_000, NaN),
+        rawMoment(PlayType.Goal, 400_000, 404_000, { confidence: NaN }),
+        fixtures.validSave,
+      ]),
+    ).toEqual({
+      shareable: false,
+      clips: [
+        clip('clip-118000', PlayType.Save, 118_000, 127_000, {
+          players: ['p5'],
+          confidence: 0.92,
+        }),
+      ],
+      candidates: [],
+      capMs: 60_000,
+    });
   });
 
   it('Selected clips are sorted by start time', () => {

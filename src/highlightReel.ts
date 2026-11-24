@@ -10,27 +10,39 @@ import {
 export { PlayType } from './types';
 export type { Clip, RawMoment, Recording, Reel } from './types';
 
+function hasRequiredFields(moment: RawMoment): boolean {
+  return (
+    Number.isFinite(moment.startMs) &&
+    Number.isFinite(moment.endMs) &&
+    Number.isFinite(moment.confidence) &&
+    Array.isArray(moment.players)
+  );
+}
+
+function fitsInRecording(moment: RawMoment, recording: Recording): boolean {
+  return moment.startMs < moment.endMs && moment.endMs <= recording.durationMs;
+}
+
+function hasValidConfidence(moment: RawMoment): boolean {
+  return moment.confidence >= 0 && moment.confidence <= 1;
+}
+
+function isKnownPlayType(type: PlayType): boolean {
+  return Object.values(PlayType).includes(type);
+}
+
 export function filterRawMoments(
   recording: Recording,
   rawMoments: RawMoment[],
-) {
-  return rawMoments.filter((moment) => {
-    if (moment.recordingId !== recording.id) return false;
-    if (!(
-      typeof moment.startMs === 'number' && typeof moment.endMs === 'number'
-    ))
-      return false;
-    if (moment.startMs >= moment.endMs) return false;
-    if (
-      moment.startMs >= recording.durationMs ||
-      moment.endMs > recording.durationMs
-    )
-      return false;
-    if (moment.confidence < 0 || moment.confidence > 1) return false;
-    if (!Object.values(PlayType).includes(moment.type)) return false;
-
-    return true;
-  });
+): RawMoment[] {
+  return rawMoments.filter(
+    (moment) =>
+      moment.recordingId === recording.id &&
+      hasRequiredFields(moment) &&
+      fitsInRecording(moment, recording) &&
+      hasValidConfidence(moment) &&
+      isKnownPlayType(moment.type),
+  );
 }
 
 export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
