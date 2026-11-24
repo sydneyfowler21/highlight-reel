@@ -18,9 +18,11 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 npm install
 npm test
 npm run typecheck
+npm run lint
+npm run format:check
 ```
 
-`npm test` runs the Jest happy-path test in `src/highlightReel.test.ts`. `npm run typecheck` type-checks the project, including that test, with TypeScript in strict mode.
+`npm test` runs the Jest happy-path test in `src/highlightReel.test.ts`. `npm run typecheck` type-checks the project, including that test, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
 
 ## Usage
 
