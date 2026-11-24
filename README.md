@@ -6,7 +6,7 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 
 ## Rules
 
-- Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, ends at or before it starts, has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
+- Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
 - Two raw moments are the same play when they share a recording, have the same play type, and their time ranges overlap or are within one second of each other. Merge those moments into one: earliest start, latest end, highest confidence, and the combined player list.
 - Add two seconds of padding before each merged moment and three seconds after it, then clamp the result so a clip never starts before 0:00 and never ends after the recording does.
 - Cap the reel at 60 seconds. Include as many goals as will fit, with no overlapping clips. Fill any remaining time in this order: save, then big play, then skill, then near miss. Within the same play type, prefer higher confidence. Skip a candidate that overlaps a clip already in the reel or that does not fit the remaining time. Sort the finished reel by start time.
@@ -335,6 +335,7 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 
 ## Next steps
 
+- Validate `recording.durationMs`. A `NaN` duration drops every moment, and an `Infinity` duration lets clip ends run forever.
 - Give every clip a unique id. Two clips that both clamp to 0:00 are both `clip-0` today.
 - Return `{ selected, candidates }` from `selectClips` instead of a `[selected, candidates]` tuple, so callers don't depend on position.
 - Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved.

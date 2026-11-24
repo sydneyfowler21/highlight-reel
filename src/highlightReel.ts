@@ -10,12 +10,18 @@ import {
 export { PlayType } from './types';
 export type { Clip, RawMoment, Recording, Reel } from './types';
 
-function hasRequiredFields(moment: RawMoment): boolean {
+function hasFiniteNumbers(moment: RawMoment): boolean {
   return (
     Number.isFinite(moment.startMs) &&
     Number.isFinite(moment.endMs) &&
-    Number.isFinite(moment.confidence) &&
-    Array.isArray(moment.players)
+    Number.isFinite(moment.confidence)
+  );
+}
+
+function hasValidPlayers(moment: RawMoment): boolean {
+  return (
+    Array.isArray(moment.players) &&
+    moment.players.every((player) => typeof player === 'string')
   );
 }
 
@@ -38,7 +44,8 @@ export function filterRawMoments(
   return rawMoments.filter(
     (moment) =>
       moment.recordingId === recording.id &&
-      hasRequiredFields(moment) &&
+      hasFiniteNumbers(moment) &&
+      hasValidPlayers(moment) &&
       fitsInRecording(moment, recording) &&
       hasValidConfidence(moment) &&
       isKnownPlayType(moment.type),

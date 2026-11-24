@@ -122,12 +122,27 @@ describe('filterRawMoments', () => {
     },
   );
 
-  it.each(['startMs', 'endMs', 'confidence'] as const)(
-    'A moment with a NaN %s is skipped',
-    (field) => {
+  it.each([
+    ['startMs', NaN],
+    ['endMs', NaN],
+    ['confidence', NaN],
+    ['startMs', -Infinity],
+  ] as const)('A moment with a %s of %p is skipped', (field, value) => {
+    expect(
+      filterRawMoments(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, 100_000, 200_000, { [field]: value }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it.each([['p1'], [[null, 3]]])(
+    'A moment whose players is %p is skipped',
+    (players) => {
       expect(
         filterRawMoments(fixtures.recording10min, [
-          rawMoment(PlayType.Goal, 100_000, 200_000, { [field]: NaN }),
+          rawMoment(PlayType.Goal, 100_000, 200_000, {
+            players: players as unknown as string[],
+          }),
         ]),
       ).toEqual([]);
     },
