@@ -336,6 +336,7 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 
 ## Next steps
 
+- Validate `recording.id`. A `NaN` id drops every moment, and an `undefined` id keeps moments that have no `recordingId`.
 - Give every clip a unique id. Two clips that both clamp to 0:00 are both `clip-0` today.
 - Return `{ selected, candidates }` from `selectClips` instead of a `[selected, candidates]` tuple, so callers don't depend on position.
 - Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved.

@@ -858,6 +858,19 @@ describe('buildReel', () => {
     expect(() => buildReel(recordingLasting(NaN), [])).toThrow(RangeError);
   });
 
+  it.each([
+    [NaN, 'got NaN'],
+    ['600000', 'got string "600000"'],
+    [null, 'got object null'],
+    [undefined, 'got undefined'],
+  ])(
+    'The error for a durationMs of %p says %p',
+    (durationMs, expectedMessage) => {
+      const recording = { id: 1, durationMs } as unknown as Recording;
+      expect(() => buildReel(recording, [])).toThrow(expectedMessage);
+    },
+  );
+
   it('Selected clips are sorted by start time', () => {
     expect(
       buildReel(fixtures.recording10min, [

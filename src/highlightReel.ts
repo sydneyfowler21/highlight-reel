@@ -55,10 +55,17 @@ function isKnownPlayType(type: unknown): type is PlayType {
   return PLAY_TYPES.has(type);
 }
 
+function describeValue(value: unknown): string {
+  if (typeof value === 'number' || value === undefined) {
+    return String(value);
+  }
+  return `${typeof value} ${JSON.stringify(value)}`;
+}
+
 function assertValidRecording(recording: Recording): void {
   if (!Number.isFinite(recording.durationMs) || recording.durationMs <= 0) {
     throw new RangeError(
-      `Expected recording.durationMs to be a finite number above 0, got ${recording.durationMs}`,
+      `Expected recording.durationMs to be a finite number above 0, got ${describeValue(recording.durationMs)}`,
     );
   }
 }
