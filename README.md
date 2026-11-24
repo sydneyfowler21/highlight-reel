@@ -20,11 +20,11 @@ npm test
 npm run typecheck
 ```
 
-`npm test` runs the included happy-path fixture and prints how many checks passed or failed. `npm run typecheck` type-checks the project with TypeScript in strict mode.
+`npm test` runs the Jest happy-path test in `src/highlightReel.test.ts`. `npm run typecheck` type-checks the project, including that test, with TypeScript in strict mode.
 
 ## Usage
 
-The included fixture is a 10-minute recording and the raw moments below (`seedRecording` and `seedRawMoments` in `src/highlightReel.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
+The included fixture is a 10-minute recording and the raw moments below (`seedRecording` and `seedRawMoments` in `src/highlightReel.test.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
 
 Input:
 
