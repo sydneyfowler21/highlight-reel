@@ -334,7 +334,7 @@ A newly built reel always reports `shareable` as false, because every clip still
 
 The code has no comments, on purpose, and the rule that bans them has no escape hatches. Both choices are as much for the AI agents that work on this repo as for people. A comment is guidance nothing enforces: it can quietly go stale, and an agent will read a comment next to a bad fix as a reason to keep the fix rather than correct it. An `eslint-disable` or `@ts-expect-error` does the same harm, telling the next agent that silencing a check is acceptable. So when something goes wrong, the lesson becomes a lint rule, a type, or a test whose failure says what to fix, not a note someone has to remember to read.
 
-Intent lives in names, structure, and tests instead: fixtures are named for the case they cover, known bugs are spelled out in the names of their `it.failing` tests, and setup a comment would have described is asserted. The `local/no-comments` rule in `eslint.config.js` enforces this. Inline ESLint config is turned off, so `eslint-disable` has no effect, and every `@ts-` suppression is banned, so lint and type errors get fixed rather than silenced. CI runs lint on every push.
+Intent lives in names, structure, and tests instead: fixtures are named for the case they cover, a known bug gets an `it.failing` test named for the bug, and setup a comment would have described is asserted. The `local/no-comments` rule in `eslint.config.js` enforces this. Inline ESLint config is turned off, so `eslint-disable` has no effect, and every `@ts-` suppression is banned, so lint and type errors get fixed rather than silenced. CI runs lint on every push.
 
 ## Next steps
 
