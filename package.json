@@ -10,23 +10,19 @@
   "type": "module",
   "scripts": {
     "test": "jest",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "node ./node_modules/typescript/bin/tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "@babel/core": "7.29.13",
-    "@babel/preset-env": "7.29.14",
-    "@babel/preset-typescript": "7.29.7",
     "@eslint/js": "10.0.1",
-    "babel-jest": "30.5.2",
     "eslint": "10.15.0",
     "eslint-config-prettier": "10.1.8",
     "jest": "30.5.2",
     "prettier": "3.10.1",
-    "@typescript/native": "npm:typescript@7.0.2",
-    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "ts-jest": "29.4.15",
+    "typescript": "6.0.3",
     "typescript-eslint": "8.74.0"
   }
 }
