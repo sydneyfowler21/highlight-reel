@@ -7,11 +7,12 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 ## Rules
 
 - Throw a `RangeError` when the recording's duration is not a finite number above 0. A NaN duration would drop every moment, and an infinite one would let clip ends run forever.
+- Throw a `RangeError` when a setting is out of range: `capMs` must be a finite number above 0, and `prePadMs` and `postPadMs` must each be a finite number at or above 0.
 - Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
 - Two raw moments are the same play when they share a recording, have the same play type, and their time ranges overlap or are within one second of each other. Merge those moments into one: earliest start, latest end, highest confidence, and the combined player list.
-- Add two seconds of padding before each merged moment and three seconds after it, then clamp the result so a clip never starts before 0:00 and never ends after the recording does.
+- Add `prePadMs` of padding before each merged moment and `postPadMs` after it, two and three seconds by default, then clamp the result so a clip never starts before 0:00 and never ends after the recording does.
 - Give every clip a unique id: `clip-<n>`, numbered from 0 in start order.
-- Cap the reel at 60 seconds. Include as many goals as will fit, with no overlapping clips. Fill any remaining time in this order: save, then big play, then skill, then near miss. Within the same play type, prefer higher confidence. Skip a candidate that overlaps a clip already in the reel or that does not fit the remaining time. Sort the finished reel by start time.
+- Cap the reel at `capMs`, 60 seconds by default. Include as many goals as will fit, with no overlapping clips. Fill any remaining time in this order: save, then big play, then skill, then near miss. Within the same play type, prefer higher confidence. Skip a candidate that overlaps a clip already in the reel or that does not fit the remaining time. Sort the finished reel by start time.
 - A newly built reel is not shareable. Shareable is true only when the reel has at least one clip, every clip in it is approved, and the total duration is at or under the cap.
 
 ## How to run it
@@ -28,9 +29,9 @@ npm run format:check
 
 ## Usage
 
-The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
+The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReel` with the default settings produces the reel that follows. `npm test` checks this same run.
 
-`buildReel` is the entry point, and it checks the recording before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect a recording that has already been checked.
+`buildReel` is the entry point, and it checks the recording and settings before running any step. Its optional third argument is a `ReelSettings` object with `capMs`, `prePadMs`, and `postPadMs`. It defaults to the exported `DEFAULT_REEL_SETTINGS`, `{ capMs: 60000, prePadMs: 2000, postPadMs: 3000 }`, so to change one setting, spread the defaults: `buildReel(recording, rawMoments, { ...DEFAULT_REEL_SETTINGS, capMs: 90000 })`. The reel's `capMs` reports the cap it was built under. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect a recording that has already been checked. `convertToClips` takes the padding settings and `selectClips` takes the cap, both required, since filling in defaults is `buildReel`'s job.
 
 Input:
 
@@ -325,8 +326,8 @@ The reel is built as a pipeline of small, pure functions:
 
 1. **Filter** drops invalid or out-of-scope raw moments.
 2. **Merge** combines detections of the same play type that overlap or are within one second of each other into one moment.
-3. **Pad/clamp** adds watchable time before and after each merged moment, clamps the clip to the recording, and leaves it pending review.
-4. **Select under the cap** fills the 60-second cap by taking goals first, then the other play types in priority order, skipping overlaps and clips that do not fit.
+3. **Pad/clamp** adds the configured padding before and after each merged moment, clamps the clip to the recording, and leaves it pending review.
+4. **Select under the cap** fills the configured cap by taking goals first, then the other play types in priority order, skipping overlaps and clips that do not fit.
 5. **Sort** puts the selected clips in chronological order.
 
 > TODO: why it's built this way (author to write)
@@ -340,4 +341,3 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 ## Next steps
 
 - Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved. Review only changes the status of clips in the built reel, so their ids stay put. A rebuild from new input, such as re-detected moments or new cap and padding settings, is a new reel whose ids may differ, and its review starts over.
-- Pass the cap and padding in as settings instead of hard-coding them.

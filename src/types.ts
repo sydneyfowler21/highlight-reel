@@ -41,3 +41,9 @@ export type Reel = {
   candidates: Clip[];
   capMs: number;
 };
+
+export type ReelSettings = {
+  capMs: number;
+  prePadMs: number;
+  postPadMs: number;
+};
