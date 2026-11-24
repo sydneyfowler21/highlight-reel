@@ -186,9 +186,9 @@ describe('filterRawMoments', () => {
     expect(filterRawMoments(recordingLasting(1), [moment])).toEqual([moment]);
   });
 
-  it('A moment whose recordingId is a number is skipped', () => {
+  it('A moment whose recordingId is the number form of the recording id is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      filterRawMoments({ ...fixtures.recording10min, id: '1' }, [
         { ...rawMoment(PlayType.Goal, 100_000, 200_000), recordingId: 1 },
       ]),
     ).toEqual([]);

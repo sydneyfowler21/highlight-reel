@@ -29,6 +29,8 @@ npm run format:check
 
 The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
 
+`buildReel` is the entry point, and it checks the recording before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect a recording that has already been checked.
+
 Input:
 
 ```json
