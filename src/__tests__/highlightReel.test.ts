@@ -452,7 +452,6 @@ describe('mergeRawMoments', () => {
       fixtures.interleaveGoalB,
     ].map((moment) => structuredClone(moment));
     const original = structuredClone(input);
-    // Frozen inputs make any in-place edit throw.
     for (const moment of input) {
       Object.freeze(moment.players);
       Object.freeze(moment);
@@ -464,7 +463,6 @@ describe('mergeRawMoments', () => {
   });
 
   it('A moment is compared with the latest play of its type', () => {
-    // The third goal is 0.5s after the second, but 5.5s after the first.
     expect(
       sortPlayers(
         mergeRawMoments([
