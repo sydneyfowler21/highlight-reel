@@ -11,10 +11,10 @@ import * as fixtures from './fixtures';
 import * as seedGame from './seedGame';
 import { PlayType, type RawMoment } from '../types';
 
-function withoutField(field: keyof RawMoment): RawMoment {
+function withoutField(field: keyof RawMoment): Partial<RawMoment> {
   const moment: Partial<RawMoment> = rawMoment(PlayType.Goal, 100_000, 200_000);
   delete moment[field];
-  return moment as RawMoment;
+  return moment;
 }
 
 function ignoringPlayerOrder<T extends { players: string[] }>(items: T[]): T[] {
@@ -45,10 +45,17 @@ describe('filterRawMoments', () => {
   it('A moment with a play type that is not in the known set is skipped', () => {
     expect(
       filterRawMoments(fixtures.recording10min, [
-        rawMoment('foul' as PlayType, 100_000, 200_000, { confidence: 0.9 }),
+        { ...rawMoment(PlayType.Goal, 100_000, 200_000), type: 'foul' },
       ]),
     ).toEqual([]);
   });
+
+  it.each([[null], ['goal']])(
+    'A value that is not an object, like %p, is skipped',
+    (value) => {
+      expect(filterRawMoments(fixtures.recording10min, [value])).toEqual([]);
+    },
+  );
 
   it('A moment with a confidence score under 0 is skipped', () => {
     expect(
@@ -113,8 +120,8 @@ describe('filterRawMoments', () => {
     },
   );
 
-  it.failing.each(['confidence', 'players'] as const)(
-    'A moment missing %s is skipped (known bug: the filter never checks that it exists, and a moment with no players crashes the merge)',
+  it.each(['confidence', 'players'] as const)(
+    'A moment missing %s is skipped',
     (field) => {
       expect(
         filterRawMoments(fixtures.recording10min, [withoutField(field)]),
@@ -122,12 +129,25 @@ describe('filterRawMoments', () => {
     },
   );
 
-  it.failing.each(['startMs', 'endMs', 'confidence'] as const)(
-    'A moment with a NaN %s is skipped (known bug: NaN passes the typeof check and every comparison)',
-    (field) => {
+  it.each([
+    ['startMs', NaN],
+    ['endMs', NaN],
+    ['confidence', NaN],
+    ['startMs', -Infinity],
+  ] as const)('A moment with a %s of %p is skipped', (field, value) => {
+    expect(
+      filterRawMoments(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, 100_000, 200_000, { [field]: value }),
+      ]),
+    ).toEqual([]);
+  });
+
+  it.each([['p1'], [[null, 3]]])(
+    'A moment whose players is %p is skipped',
+    (players) => {
       expect(
         filterRawMoments(fixtures.recording10min, [
-          rawMoment(PlayType.Goal, 100_000, 200_000, { [field]: NaN }),
+          { ...rawMoment(PlayType.Goal, 100_000, 200_000), players },
         ]),
       ).toEqual([]);
     },
@@ -149,7 +169,7 @@ describe('filterRawMoments', () => {
           recordingId: 2,
           confidence: 0.99,
         }),
-        rawMoment('foul' as PlayType, 90_000, 95_000, { confidence: 0.9 }),
+        { ...rawMoment(PlayType.Goal, 90_000, 95_000), type: 'foul' },
         rawMoment(PlayType.Goal, 50_000, 50_000, { confidence: 0.9 }),
       ]),
     ).toEqual([fixtures.validSave]);
@@ -754,6 +774,40 @@ describe('buildReel', () => {
         confidence: 0.99,
       }),
     ]);
+  });
+
+  it('A moment with no players is skipped instead of crashing the merge', () => {
+    const goalWithoutPlayers = withoutField('players');
+    const overlappingGoal = rawMoment(PlayType.Goal, 190_000, 195_000);
+    expect(
+      buildReel(fixtures.recording10min, [goalWithoutPlayers, overlappingGoal]),
+    ).toEqual({
+      shareable: false,
+      clips: [clip('clip-188000', PlayType.Goal, 188_000, 198_000)],
+      candidates: [],
+      capMs: 60_000,
+    });
+  });
+
+  it('Moments with NaN times or confidence are skipped and the rest of the reel is built', () => {
+    expect(
+      buildReel(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, NaN, 50_000),
+        rawMoment(PlayType.Goal, 300_000, NaN),
+        rawMoment(PlayType.Goal, 400_000, 404_000, { confidence: NaN }),
+        fixtures.validSave,
+      ]),
+    ).toEqual({
+      shareable: false,
+      clips: [
+        clip('clip-118000', PlayType.Save, 118_000, 127_000, {
+          players: ['p5'],
+          confidence: 0.92,
+        }),
+      ],
+      candidates: [],
+      capMs: 60_000,
+    });
   });
 
   it('Selected clips are sorted by start time', () => {
