@@ -1,9 +1,13 @@
-/**
- * Builders for test data. Each fills in defaults (recording 1, confidence 0.9,
- * players ['p1'], status 'pending') that the caller can override.
- */
-
 import { type PlayType, type Clip, type RawMoment } from '../types';
+
+export function at(gameClock: string): number {
+  const minutesAndSeconds = /^(\d+):([0-5]\d)$/.exec(gameClock);
+  if (!minutesAndSeconds) {
+    throw new Error(`Expected a game clock like '8:30', got '${gameClock}'`);
+  }
+  const [, minutes, seconds] = minutesAndSeconds.map(Number);
+  return (minutes * 60 + seconds) * 1000;
+}
 
 export function rawMoment(
   type: PlayType,
