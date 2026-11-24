@@ -180,13 +180,11 @@ export function buildReel(recording: Recording, rawMoments: unknown[]): Reel {
   const mergedMoments = mergeRawMoments(filteredMoments);
   const clips = convertToClips(recording, mergedMoments);
   const { selected, candidates } = selectClips(clips);
-  const sortedSelectedClips = [...selected].sort(
-    (a, b) => a.startMs - b.startMs,
-  );
+  const sortedSelected = [...selected].sort((a, b) => a.startMs - b.startMs);
 
   return {
     shareable: false,
-    clips: sortedSelectedClips,
+    clips: sortedSelected,
     candidates,
     capMs: consts.MAX_REEL_LENGTH,
   };
