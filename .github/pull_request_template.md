@@ -1,0 +1,3 @@
+- [ ] README Rules or Next steps updated if behavior changed
+- [ ] a test added for every new guard or edge case (revert the guard and a test should fail)
+- [ ] no comments in code or config

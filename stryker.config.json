@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "packageManager": "npm",
+  "testRunner": "jest",
+  "checkers": ["typescript"],
+  "tsconfigFile": "tsconfig.json",
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "src/*.ts",
+    "!src/__tests__/**",
+    "!src/**/*.test.ts",
+    "!src/**/fixtures.ts",
+    "!src/**/builders.ts",
+    "!src/**/seedGame.ts"
+  ],
+  "jest": {
+    "projectType": "custom",
+    "configFile": "jest.config.cjs",
+    "enableFindRelatedTests": true
+  },
+  "reporters": ["html", "clear-text", "progress"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/mutation.html"
+  },
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  }
+}

@@ -2,4 +2,6 @@ node_modules
 dist
 build
 coverage
+reports
+.stryker-tmp
 package-lock.json

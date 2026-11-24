@@ -35,7 +35,14 @@ const noComments = {
 
 export default tseslint.config(
   {
-    ignores: ['node_modules/**', 'dist/**', 'build/**', 'coverage/**'],
+    ignores: [
+      'node_modules/**',
+      'dist/**',
+      'build/**',
+      'coverage/**',
+      'reports/**',
+      '.stryker-tmp/**',
+    ],
   },
   {
     linterOptions: {
