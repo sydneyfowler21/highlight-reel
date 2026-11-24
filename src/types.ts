@@ -30,6 +30,11 @@ export type Clip = {
   status: 'pending' | 'approved' | 'rejected';
 };
 
+export type ClipSelection = {
+  selected: Clip[];
+  candidates: Clip[];
+};
+
 export type Reel = {
   shareable: boolean;
   clips: Clip[];

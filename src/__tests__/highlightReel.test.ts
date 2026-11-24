@@ -649,13 +649,16 @@ describe('convertToClips', () => {
 
 describe('selectClips', () => {
   it('An empty input list yields no selected clips and no candidates', () => {
-    expect(selectClips([])).toEqual([[], []]);
+    expect(selectClips([])).toEqual({ selected: [], candidates: [] });
   });
 
   it('Clips that sum to exactly the 60s cap are all included', () => {
     expect(
       selectClips([fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s]),
-    ).toEqual([[fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s], []]);
+    ).toEqual({
+      selected: [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
+      candidates: [],
+    });
   });
 
   it('A clip just over the remaining time is skipped for a later one that fits', () => {
@@ -666,15 +669,18 @@ describe('selectClips', () => {
         fixtures.saveJustOver,
         fixtures.skill10s,
       ]),
-    ).toEqual([
-      [fixtures.goal20sA, fixtures.goal20sB, fixtures.skill10s],
-      [fixtures.saveJustOver],
-    ]);
+    ).toEqual({
+      selected: [fixtures.goal20sA, fixtures.goal20sB, fixtures.skill10s],
+      candidates: [fixtures.saveJustOver],
+    });
   });
 
   it('A clip longer than the cap is skipped and later clips can still fill the reel', () => {
     expect(selectClips([fixtures.overCapClip, fixtures.underCapSkill])).toEqual(
-      [[fixtures.underCapSkill], [fixtures.overCapClip]],
+      {
+        selected: [fixtures.underCapSkill],
+        candidates: [fixtures.overCapClip],
+      },
     );
   });
 
@@ -695,10 +701,10 @@ describe('selectClips', () => {
       confidence: 0.5,
     });
 
-    expect(selectClips([nearMiss, skill, goal, save])).toEqual([
-      [goal, save],
-      [skill, nearMiss],
-    ]);
+    expect(selectClips([nearMiss, skill, goal, save])).toEqual({
+      selected: [goal, save],
+      candidates: [skill, nearMiss],
+    });
   });
 
   it('Within the same play type, higher confidence wins', () => {
@@ -707,21 +713,27 @@ describe('selectClips', () => {
       players: ['p2'],
     });
 
-    expect(selectClips([low, high])).toEqual([[high], [low]]);
+    expect(selectClips([low, high])).toEqual({
+      selected: [high],
+      candidates: [low],
+    });
   });
 
   it('Ties in play type and confidence keep input order', () => {
     expect(
       selectClips([fixtures.bigPlay40sSecond, fixtures.bigPlay40sFirst]),
-    ).toEqual([[fixtures.bigPlay40sSecond], [fixtures.bigPlay40sFirst]]);
+    ).toEqual({
+      selected: [fixtures.bigPlay40sSecond],
+      candidates: [fixtures.bigPlay40sFirst],
+    });
   });
 
   it('Clips that touch end to start do not overlap and are both selected', () => {
     expect(fixtures.goal20sA.endMs).toBe(fixtures.laterSkill.startMs);
-    expect(selectClips([fixtures.goal20sA, fixtures.laterSkill])).toEqual([
-      [fixtures.goal20sA, fixtures.laterSkill],
-      [],
-    ]);
+    expect(selectClips([fixtures.goal20sA, fixtures.laterSkill])).toEqual({
+      selected: [fixtures.goal20sA, fixtures.laterSkill],
+      candidates: [],
+    });
   });
 
   it('A clip that overlaps an already selected clip is skipped', () => {
@@ -731,10 +743,10 @@ describe('selectClips', () => {
         fixtures.overlappingSave,
         fixtures.laterSkill,
       ]),
-    ).toEqual([
-      [fixtures.goal20sA, fixtures.laterSkill],
-      [fixtures.overlappingSave],
-    ]);
+    ).toEqual({
+      selected: [fixtures.goal20sA, fixtures.laterSkill],
+      candidates: [fixtures.overlappingSave],
+    });
   });
 });
 

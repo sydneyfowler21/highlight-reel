@@ -2,13 +2,14 @@ import * as consts from './consts';
 import {
   PlayType,
   type Clip,
+  type ClipSelection,
   type RawMoment,
   type Recording,
   type Reel,
 } from './types';
 
 export { PlayType } from './types';
-export type { Clip, RawMoment, Recording, Reel } from './types';
+export type { Clip, ClipSelection, RawMoment, Recording, Reel } from './types';
 
 type UncheckedMoment = { [Field in keyof RawMoment]?: unknown };
 
@@ -131,14 +132,14 @@ export function convertToClips(
   });
 }
 
-export function selectClips(clips: Clip[]): [Clip[], Clip[]] {
+export function selectClips(clips: Clip[]): ClipSelection {
   const clipsByImportance = [...clips].sort(
     (a, b) =>
       consts.PLAY_TYPE_PRIORITY[a.type] - consts.PLAY_TYPE_PRIORITY[b.type] ||
       b.confidence - a.confidence,
   );
-  const selectedClips: Clip[] = [];
-  const extraClips: Clip[] = [];
+  const selected: Clip[] = [];
+  const candidates: Clip[] = [];
 
   let index = 0;
   let reelLength = 0;
@@ -150,27 +151,27 @@ export function selectClips(clips: Clip[]): [Clip[], Clip[]] {
       clipsByImportance[index].endMs - clipsByImportance[index].startMs;
     if (reelLength + clipLength <= consts.MAX_REEL_LENGTH) {
       if (
-        selectedClips.some(
+        selected.some(
           (clip) =>
             clip.startMs < clipsByImportance[index].endMs &&
             clipsByImportance[index].startMs < clip.endMs,
         )
       ) {
-        extraClips.push(clipsByImportance[index]);
+        candidates.push(clipsByImportance[index]);
       } else {
-        selectedClips.push(clipsByImportance[index]);
+        selected.push(clipsByImportance[index]);
         reelLength += clipLength;
       }
     } else {
-      extraClips.push(clipsByImportance[index]);
+      candidates.push(clipsByImportance[index]);
     }
 
     index++;
   }
 
-  extraClips.push(...clipsByImportance.slice(index));
+  candidates.push(...clipsByImportance.slice(index));
 
-  return [selectedClips, extraClips];
+  return { selected, candidates };
 }
 
 export function buildReel(recording: Recording, rawMoments: unknown[]): Reel {
@@ -178,15 +179,15 @@ export function buildReel(recording: Recording, rawMoments: unknown[]): Reel {
   const filteredMoments = filterRawMoments(recording, rawMoments);
   const mergedMoments = mergeRawMoments(filteredMoments);
   const clips = convertToClips(recording, mergedMoments);
-  const [selectedClips, extraClips] = selectClips(clips);
-  const sortedSelectedClips = [...selectedClips].sort(
+  const { selected, candidates } = selectClips(clips);
+  const sortedSelectedClips = [...selected].sort(
     (a, b) => a.startMs - b.startMs,
   );
 
   return {
     shareable: false,
     clips: sortedSelectedClips,
-    candidates: extraClips,
+    candidates,
     capMs: consts.MAX_REEL_LENGTH,
   };
 }
