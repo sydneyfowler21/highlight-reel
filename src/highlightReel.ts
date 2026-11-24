@@ -10,7 +10,11 @@ import {
 export { PlayType } from './types';
 export type { Clip, RawMoment, Recording, Reel } from './types';
 
-type UncheckedMoment = { [Field in keyof RawMoment]?: unknown };
+type Unchecked<Checked> = { [Field in keyof Checked]?: unknown };
+
+type UncheckedMoment = Unchecked<RawMoment>;
+
+export type UncheckedRecording = Unchecked<Recording>;
 
 type CheckedFields<Field extends keyof RawMoment> = UncheckedMoment &
   Pick<RawMoment, Field>;
@@ -62,13 +66,19 @@ function describeValue(value: unknown): string {
   return `${typeof value} ${JSON.stringify(value)}`;
 }
 
-function assertValidRecording(recording: Recording): void {
+function assertValidRecording(
+  recording: UncheckedRecording,
+): asserts recording is Recording {
   if (!Number.isSafeInteger(recording.id)) {
     throw new RangeError(
       `Expected recording.id to be a safe integer, got ${describeValue(recording.id)}`,
     );
   }
-  if (!Number.isFinite(recording.durationMs) || recording.durationMs <= 0) {
+  if (
+    typeof recording.durationMs !== 'number' ||
+    !Number.isFinite(recording.durationMs) ||
+    recording.durationMs <= 0
+  ) {
     throw new RangeError(
       `Expected recording.durationMs to be a finite number above 0, got ${describeValue(recording.durationMs)}`,
     );
@@ -76,7 +86,7 @@ function assertValidRecording(recording: Recording): void {
 }
 
 export function filterRawMoments(
-  recording: Recording,
+  recording: UncheckedRecording,
   rawMoments: unknown[],
 ): RawMoment[] {
   assertValidRecording(recording);
@@ -122,7 +132,7 @@ export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
 }
 
 export function convertToClips(
-  recording: Recording,
+  recording: UncheckedRecording,
   rawMoments: RawMoment[],
 ): Clip[] {
   assertValidRecording(recording);
@@ -187,7 +197,10 @@ export function selectClips(clips: Clip[]): [Clip[], Clip[]] {
   return [selectedClips, extraClips];
 }
 
-export function buildReel(recording: Recording, rawMoments: unknown[]): Reel {
+export function buildReel(
+  recording: UncheckedRecording,
+  rawMoments: unknown[],
+): Reel {
   const filteredMoments = filterRawMoments(recording, rawMoments);
   const mergedMoments = mergeRawMoments(filteredMoments);
   const clips = convertToClips(recording, mergedMoments);

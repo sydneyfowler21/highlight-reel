@@ -5,6 +5,7 @@ import {
   filterRawMoments,
   mergeRawMoments,
   selectClips,
+  type UncheckedRecording,
 } from '../highlightReel';
 import { clip, rawMoment } from './builders';
 import * as fixtures from './fixtures';
@@ -33,8 +34,8 @@ function recordingLasting(durationMs: number): Recording {
   return { ...fixtures.recording10min, durationMs };
 }
 
-function recordingWithId(id: unknown): Recording {
-  return { ...fixtures.recording10min, id } as unknown as Recording;
+function recordingWithId(id: unknown): UncheckedRecording {
+  return { ...fixtures.recording10min, id };
 }
 
 function ignoringPlayerOrder<T extends { players: string[] }>(items: T[]): T[] {
@@ -922,8 +923,9 @@ describe('buildReel', () => {
   ])(
     'The error for a durationMs of %p says %p',
     (durationMs, expectedMessage) => {
-      const recording = { id: 1, durationMs } as unknown as Recording;
-      expect(() => buildReel(recording, [])).toThrow(expectedMessage);
+      expect(() => buildReel({ id: 1, durationMs }, [])).toThrow(
+        expectedMessage,
+      );
     },
   );
 
