@@ -55,10 +55,26 @@ function isKnownPlayType(type: unknown): type is PlayType {
   return PLAY_TYPES.has(type);
 }
 
+function describeValue(value: unknown): string {
+  if (typeof value === 'number' || value === undefined) {
+    return String(value);
+  }
+  return `${typeof value} ${JSON.stringify(value)}`;
+}
+
+function assertValidRecording(recording: Recording): void {
+  if (!Number.isFinite(recording.durationMs) || recording.durationMs <= 0) {
+    throw new RangeError(
+      `Expected recording.durationMs to be a finite number above 0, got ${describeValue(recording.durationMs)}`,
+    );
+  }
+}
+
 export function filterRawMoments(
   recording: Recording,
   rawMoments: unknown[],
 ): RawMoment[] {
+  assertValidRecording(recording);
   return rawMoments.filter(
     (moment): moment is RawMoment =>
       isObject(moment) &&
@@ -104,6 +120,7 @@ export function convertToClips(
   recording: Recording,
   rawMoments: RawMoment[],
 ): Clip[] {
+  assertValidRecording(recording);
   return rawMoments.map((moment) => {
     const paddedStart = Math.max(moment.startMs - consts.PRE_PAD_MS, 0);
     const paddedEnd = Math.min(
