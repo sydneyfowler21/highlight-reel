@@ -854,6 +854,10 @@ describe('buildReel', () => {
     },
   );
 
+  it('A recording with a NaN durationMs throws even with no moments', () => {
+    expect(() => buildReel(recordingLasting(NaN), [])).toThrow(RangeError);
+  });
+
   it('Selected clips are sorted by start time', () => {
     expect(
       buildReel(fixtures.recording10min, [
