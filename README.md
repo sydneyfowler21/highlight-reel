@@ -339,6 +339,5 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 
 ## Next steps
 
-- Return `{ selected, candidates }` from `selectClips` instead of a `[selected, candidates]` tuple, so callers don't depend on position.
 - Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved. Review only changes the status of clips in the built reel, so their ids stay put. A rebuild from new input, such as re-detected moments or new cap and padding settings, is a new reel whose ids may differ, and its review starts over.
 - Pass the cap and padding in as settings instead of hard-coding them.
