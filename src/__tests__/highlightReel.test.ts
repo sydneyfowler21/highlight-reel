@@ -9,12 +9,18 @@ import {
 import { clip, rawMoment } from './builders';
 import * as fixtures from './fixtures';
 import * as seedGame from './seedGame';
-import { PlayType, type RawMoment } from '../types';
+import { PlayType, type RawMoment, type Recording } from '../types';
 
 function withoutField(field: keyof RawMoment): Partial<RawMoment> {
   const moment: Partial<RawMoment> = rawMoment(PlayType.Goal, 100_000, 200_000);
   delete moment[field];
   return moment;
+}
+
+const invalidDurations = [[NaN], [Infinity], [-Infinity], [-1], [0]];
+
+function recordingLasting(durationMs: number): Recording {
+  return { ...fixtures.recording10min, durationMs };
 }
 
 function ignoringPlayerOrder<T extends { players: string[] }>(items: T[]): T[] {
@@ -173,6 +179,20 @@ describe('filterRawMoments', () => {
         rawMoment(PlayType.Goal, 50_000, 50_000, { confidence: 0.9 }),
       ]),
     ).toEqual([fixtures.validSave]);
+  });
+
+  it.each(invalidDurations)(
+    'A recording with a durationMs of %p throws',
+    (durationMs) => {
+      expect(() =>
+        filterRawMoments(recordingLasting(durationMs), [fixtures.validSave]),
+      ).toThrow(RangeError);
+    },
+  );
+
+  it('A 1ms recording is valid and keeps a moment that fills it', () => {
+    const moment = rawMoment(PlayType.Goal, 0, 1);
+    expect(filterRawMoments(recordingLasting(1), [moment])).toEqual([moment]);
   });
 });
 
@@ -617,6 +637,21 @@ describe('convertToClips', () => {
     expect(result.players).not.toBe(moment.players);
   });
 
+  it.each(invalidDurations)(
+    'A recording with a durationMs of %p throws',
+    (durationMs) => {
+      expect(() =>
+        convertToClips(recordingLasting(durationMs), [fixtures.validSave]),
+      ).toThrow(RangeError);
+    },
+  );
+
+  it('Padding after a moment in a 1ms recording clamps to 1ms', () => {
+    expect(
+      convertToClips(recordingLasting(1), [rawMoment(PlayType.Goal, 0, 1)]),
+    ).toEqual([clip('clip-0', PlayType.Goal, 0, 1)]);
+  });
+
   it.failing(
     'Clips that clamp to the same start still get unique ids (known bug: ids are clip-<paddedStart>)',
     () => {
@@ -809,6 +844,15 @@ describe('buildReel', () => {
       capMs: 60_000,
     });
   });
+
+  it.each(invalidDurations)(
+    'A recording with a durationMs of %p throws',
+    (durationMs) => {
+      expect(() =>
+        buildReel(recordingLasting(durationMs), [fixtures.validSave]),
+      ).toThrow(RangeError);
+    },
+  );
 
   it('Selected clips are sorted by start time', () => {
     expect(
