@@ -357,6 +357,145 @@ describe('mergeRawMoments', () => {
     ]);
   });
 
+  it('Overlapping same-type moments merge when another type starts between them', () => {
+    // Sorted by start: goal 0:10, save 0:15, goal 0:18.
+    expect(
+      sortPlayers(
+        mergeRawMoments([
+          fixtures.mergeGoalA,
+          fixtures.interleaveSave,
+          fixtures.interleaveGoalB,
+        ]),
+      ),
+    ).toEqual([
+      rawMoment(PlayType.Goal, 10_000, 28_000, {
+        players: ['p1', 'p3'],
+        confidence: 0.95,
+      }),
+      fixtures.interleaveSave,
+    ]);
+  });
+
+  it('Same-type moments within 1s merge when another type starts in the gap', () => {
+    // The save starts in the 800ms gap between the two goals.
+    expect(
+      sortPlayers(
+        mergeRawMoments([
+          fixtures.mergeGoalA,
+          fixtures.interleaveGapSave,
+          fixtures.interleaveGapGoalB,
+        ]),
+      ),
+    ).toEqual([
+      rawMoment(PlayType.Goal, 10_000, 30_000, {
+        players: ['p1', 'p3'],
+        confidence: 0.9,
+      }),
+      fixtures.interleaveGapSave,
+    ]);
+  });
+
+  it('Input order does not change an interleaved merge', () => {
+    expect(
+      sortPlayers(
+        mergeRawMoments([
+          fixtures.interleaveGoalB,
+          fixtures.interleaveSave,
+          fixtures.mergeGoalA,
+        ]),
+      ),
+    ).toEqual([
+      rawMoment(PlayType.Goal, 10_000, 28_000, {
+        players: ['p1', 'p3'],
+        confidence: 0.95,
+      }),
+      fixtures.interleaveSave,
+    ]);
+  });
+
+  it('Two interleaved plays of different types each merge into one play', () => {
+    // Goal, save, goal, save: each type overlaps its own earlier detection.
+    expect(
+      sortPlayers(
+        mergeRawMoments([
+          rawMoment(PlayType.Goal, 10_000, 20_000, { confidence: 0.6 }),
+          rawMoment(PlayType.Save, 12_000, 22_000, {
+            players: ['p4'],
+            confidence: 0.7,
+          }),
+          rawMoment(PlayType.Goal, 15_000, 25_000, {
+            players: ['p2'],
+            confidence: 0.8,
+          }),
+          rawMoment(PlayType.Save, 21_000, 27_000, {
+            players: ['p5'],
+            confidence: 0.5,
+          }),
+        ]),
+      ),
+    ).toEqual([
+      rawMoment(PlayType.Goal, 10_000, 25_000, {
+        players: ['p1', 'p2'],
+        confidence: 0.8,
+      }),
+      rawMoment(PlayType.Save, 12_000, 27_000, {
+        players: ['p4', 'p5'],
+        confidence: 0.7,
+      }),
+    ]);
+  });
+
+  it('Merging does not change the input moments', () => {
+    const input = [
+      fixtures.mergeGoalA,
+      fixtures.interleaveSave,
+      fixtures.interleaveGoalB,
+    ].map((moment) => structuredClone(moment));
+    const original = structuredClone(input);
+    for (const moment of input) {
+      Object.freeze(moment.players);
+      Object.freeze(moment);
+    }
+    Object.freeze(input);
+
+    mergeRawMoments(input);
+    expect(input).toEqual(original);
+  });
+
+  it('A moment is compared with the latest play of its type', () => {
+    expect(
+      sortPlayers(
+        mergeRawMoments([
+          rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
+          rawMoment(PlayType.Goal, 5_000, 6_000, {
+            players: ['p2'],
+            confidence: 0.7,
+          }),
+          rawMoment(PlayType.Goal, 6_500, 7_000, {
+            players: ['p3'],
+            confidence: 0.6,
+          }),
+        ]),
+      ),
+    ).toEqual([
+      rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
+      rawMoment(PlayType.Goal, 5_000, 7_000, {
+        players: ['p2', 'p3'],
+        confidence: 0.7,
+      }),
+    ]);
+  });
+
+  it('Another type in the gap does not link same-type moments more than 1s apart', () => {
+    const gapSave = rawMoment(PlayType.Save, 20_500, 21_500, {
+      players: ['p4'],
+      confidence: 0.7,
+    });
+    expect(
+      mergeRawMoments([fixtures.mergeGoalA, gapSave, fixtures.gap1001B]),
+    ).toEqual([fixtures.mergeGoalA, gapSave, fixtures.gap1001B]);
+  });
+
   it('Different-type moments within 1s never merge', () => {
     expect(
       mergeRawMoments([

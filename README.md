@@ -331,8 +331,6 @@ A newly built reel always reports `shareable` as false, because every clip still
 
 ## Next steps
 
-- Merge correctly when other play types interleave between detections of the same play.
-- Add the interleaved-merge tests with that fix. The fixtures are already in `src/__tests__/fixtures.ts`.
 - Skip moments that are missing `confidence` or `players`, or that have `NaN` times or confidence. A moment with no `players` currently crashes the merge.
 - Give every clip a unique id. Two clips that both clamp to 0:00 are both `clip-0` today.
 - Return `{ selected, candidates }` from `selectClips` instead of a `[selected, candidates]` tuple, so callers don't depend on position.

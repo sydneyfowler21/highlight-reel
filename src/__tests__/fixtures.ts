@@ -46,9 +46,8 @@ export const gap1001B = rawMoment(PlayType.Goal, 21_001, 30_000, {
   players: ['p2'],
 });
 
-// --- Saved for the interleaved-merge fix ----------------------------------
-// Not used by any test yet. Each pairs with mergeGoalA, and their tests
-// will be added with that fix.
+// --- Interleaved merges ---------------------------------------------------
+// Each pairs with mergeGoalA.
 
 // Interleaved: a save between mergeGoalA and an overlapping goal.
 export const interleaveSave = rawMoment(PlayType.Save, 15_000, 25_000, {
