@@ -26,7 +26,7 @@ npm run format:check
 
 ## Usage
 
-The included fixture is a 10-minute recording and the raw moments below (`seedRecording` and `seedRawMoments` in `src/__tests__/fixtures.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
+The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
 
 Input:
 
@@ -328,6 +328,10 @@ The reel is built as a pipeline of small, pure functions:
 > TODO: why it's built this way (author to write)
 
 A newly built reel always reports `shareable` as false, because every clip still needs review. Each step has its own unit tests, and an end-to-end test runs the whole pipeline against a 10-minute fixture.
+
+The code has no comments, on purpose, and the rule that bans them has no escape hatches. Both choices are as much for the AI agents that work on this repo as for people. A comment is guidance nothing enforces: it can quietly go stale, and an agent will read a comment next to a bad fix as a reason to keep the fix rather than correct it. An `eslint-disable` or `@ts-expect-error` does the same harm, telling the next agent that silencing a check is acceptable. So when something goes wrong, the lesson becomes a lint rule, a type, or a test whose failure says what to fix, not a note someone has to remember to read.
+
+Intent lives in names, structure, and tests instead: fixtures are named for the case they cover, known bugs are spelled out in the names of their `it.failing` tests, and setup a comment would have described is asserted. The `local/no-comments` rule in `eslint.config.js` enforces this. Inline ESLint config is turned off, so `eslint-disable` has no effect, and every `@ts-` suppression is banned, so lint and type errors get fixed rather than silenced. CI runs lint on every push.
 
 ## Next steps
 
