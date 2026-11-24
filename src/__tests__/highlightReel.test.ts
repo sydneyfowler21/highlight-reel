@@ -564,7 +564,7 @@ describe('convertToClips', () => {
     expect(
       convertToClips(fixtures.recording10min, [fixtures.validSave]),
     ).toEqual([
-      clip('clip-118000', PlayType.Save, 118_000, 127_000, {
+      clip('clip-0', PlayType.Save, 118_000, 127_000, {
         players: ['p5'],
         confidence: 0.92,
       }),
@@ -601,7 +601,7 @@ describe('convertToClips', () => {
         rawMoment(PlayType.Goal, 596_000, 599_000, { confidence: 0.88 }),
       ]),
     ).toEqual([
-      clip('clip-594000', PlayType.Goal, 594_000, 600_000, {
+      clip('clip-0', PlayType.Goal, 594_000, 600_000, {
         confidence: 0.88,
       }),
     ]);
@@ -613,24 +613,8 @@ describe('convertToClips', () => {
         rawMoment(PlayType.Goal, 595_000, 600_000, { confidence: 0.88 }),
       ]),
     ).toEqual([
-      clip('clip-593000', PlayType.Goal, 593_000, 600_000, {
+      clip('clip-0', PlayType.Goal, 593_000, 600_000, {
         confidence: 0.88,
-      }),
-    ]);
-  });
-
-  it('Clips start pending and use the padded start in the id', () => {
-    expect(
-      convertToClips(fixtures.recording10min, [
-        rawMoment(PlayType.Skill, 80_000, 81_000, {
-          players: ['p10'],
-          confidence: 0.8,
-        }),
-      ]),
-    ).toEqual([
-      clip('clip-78000', PlayType.Skill, 78_000, 84_000, {
-        players: ['p10'],
-        confidence: 0.8,
       }),
     ]);
   });
@@ -648,16 +632,19 @@ describe('convertToClips', () => {
     ).toEqual([clip('clip-0', PlayType.Goal, 0, 1)]);
   });
 
-  it.failing(
-    'Clips that clamp to the same start still get unique ids (known bug: ids are clip-<paddedStart>)',
-    () => {
-      const clips = convertToClips(fixtures.recording10min, [
+  it('Ids number the clips from 0 in input order, even when starts clamp to the same 0:00', () => {
+    expect(
+      convertToClips(fixtures.recording10min, [
         rawMoment(PlayType.Save, 1_000, 4_000),
         rawMoment(PlayType.Goal, 500, 3_000),
-      ]);
-      expect(new Set(clips.map((c) => c.id)).size).toBe(clips.length);
-    },
-  );
+        rawMoment(PlayType.Skill, 300_000, 304_000),
+      ]).map((c) => [c.startMs, c.id]),
+    ).toEqual([
+      [0, 'clip-0'],
+      [0, 'clip-1'],
+      [298_000, 'clip-2'],
+    ]);
+  });
 });
 
 describe('selectClips', () => {
@@ -792,15 +779,15 @@ describe('buildReel', () => {
         }),
       ]).candidates,
     ).toEqual([
-      clip('clip-298000', PlayType.Skill, 298_000, 313_000, {
+      clip('clip-3', PlayType.Skill, 298_000, 313_000, {
         players: ['p11'],
         confidence: 0.8,
       }),
-      clip('clip-198000', PlayType.Skill, 198_000, 213_000, {
+      clip('clip-2', PlayType.Skill, 198_000, 213_000, {
         players: ['p10'],
         confidence: 0.5,
       }),
-      clip('clip-98000', PlayType.NearMiss, 98_000, 113_000, {
+      clip('clip-1', PlayType.NearMiss, 98_000, 113_000, {
         players: ['p12'],
         confidence: 0.99,
       }),
@@ -814,7 +801,7 @@ describe('buildReel', () => {
       buildReel(fixtures.recording10min, [goalWithoutPlayers, overlappingGoal]),
     ).toEqual({
       shareable: false,
-      clips: [clip('clip-188000', PlayType.Goal, 188_000, 198_000)],
+      clips: [clip('clip-0', PlayType.Goal, 188_000, 198_000)],
       candidates: [],
       capMs: 60_000,
     });
@@ -831,7 +818,7 @@ describe('buildReel', () => {
     ).toEqual({
       shareable: false,
       clips: [
-        clip('clip-118000', PlayType.Save, 118_000, 127_000, {
+        clip('clip-0', PlayType.Save, 118_000, 127_000, {
           players: ['p5'],
           confidence: 0.92,
         }),
@@ -878,11 +865,11 @@ describe('buildReel', () => {
     ).toEqual({
       shareable: false,
       clips: [
-        clip('clip-8000', PlayType.Save, 8_000, 17_000, {
+        clip('clip-0', PlayType.Save, 8_000, 17_000, {
           players: ['p5'],
           confidence: 0.8,
         }),
-        clip('clip-98000', PlayType.Goal, 98_000, 107_000),
+        clip('clip-1', PlayType.Goal, 98_000, 107_000),
       ],
       candidates: [],
       capMs: 60_000,
