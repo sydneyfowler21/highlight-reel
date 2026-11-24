@@ -22,11 +22,11 @@ npm run lint
 npm run format:check
 ```
 
-`npm test` runs the Jest happy-path test in `src/highlightReel.test.ts`. `npm run typecheck` type-checks the project, including that test, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
+`npm test` runs the Jest tests in `src/__tests__/`: unit tests for each step of the pipeline plus end-to-end `buildReel` runs. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
 
 ## Usage
 
-The included fixture is a 10-minute recording and the raw moments below (`seedRecording` and `seedRawMoments` in `src/highlightReel.test.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
+The included fixture is a 10-minute recording and the raw moments below (`seedRecording` and `seedRawMoments` in `src/__tests__/fixtures.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
 
 Input:
 
@@ -327,12 +327,15 @@ The reel is built as a pipeline of small, pure functions:
 
 > TODO: why it's built this way (author to write)
 
-A newly built reel always reports `shareable` as false, because every clip still needs review. The current test is one end-to-end check of this pipeline against a 10-minute fixture.
+A newly built reel always reports `shareable` as false, because every clip still needs review. Each step has its own unit tests, and an end-to-end test runs the whole pipeline against a 10-minute fixture.
 
 ## Next steps
 
 - Honor the one-second merge-gap rule, so moments of the same type that almost touch are treated as the same play.
 - Merge correctly when other play types interleave between detections of the same play.
-- Add unit tests for each function, including bad input, the one-second gap, padding at 0:00 and at the end of the recording, and selection at the exact cap.
+- Add the one-second gap and interleaved-merge tests with those fixes. The fixtures are already in `src/__tests__/fixtures.ts`.
+- Skip moments that are missing `confidence` or `players`, or that have `NaN` times or confidence. A moment with no `players` currently crashes the merge.
+- Give every clip a unique id. Two clips that both clamp to 0:00 are both `clip-0` today.
+- Return `{ selected, candidates }` from `selectClips` instead of a `[selected, candidates]` tuple, so callers don't depend on position.
 - Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved.
 - Pass the cap and padding in as settings instead of hard-coding them.

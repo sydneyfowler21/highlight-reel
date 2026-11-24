@@ -1,55 +1,19 @@
-export type Recording = {
-  id: number;
-  durationMs: number;
-};
+import * as consts from './consts';
+import {
+  PlayType,
+  type Clip,
+  type RawMoment,
+  type Recording,
+  type Reel,
+} from './types';
 
-export enum PlayType {
-  Goal = 'goal',
-  Save = 'save',
-  BigPlay = 'bigPlay',
-  Skill = 'skill',
-  NearMiss = 'nearMiss',
-}
+export { PlayType } from './types';
+export type { Clip, RawMoment, Recording, Reel } from './types';
 
-export type RawMoment = {
-  recordingId: number;
-  startMs: number;
-  endMs: number;
-  type: PlayType;
-  confidence: number;
-  players: string[];
-};
-
-export type Clip = {
-  id: string;
-  startMs: number;
-  endMs: number;
-  type: PlayType;
-  confidence: number;
-  players: string[];
-  status: 'pending' | 'approved' | 'rejected';
-};
-
-export type Reel = {
-  shareable: boolean;
-  clips: Clip[]; // What's in the reel
-  candidates: Clip[]; // Prioritized list of extra clips
-  capMs: number;
-};
-
-const MAX_REEL_LENGTH = 60000;
-const PRE_PAD_MS = 2000;
-const POST_PAD_MS = 3000;
-
-const PLAY_TYPE_PRIORITY: Record<PlayType, number> = {
-  [PlayType.Goal]: 1,
-  [PlayType.Save]: 2,
-  [PlayType.BigPlay]: 3,
-  [PlayType.Skill]: 4,
-  [PlayType.NearMiss]: 5,
-};
-
-function filterRawMoments(recording: Recording, rawMoments: RawMoment[]) {
+export function filterRawMoments(
+  recording: Recording,
+  rawMoments: RawMoment[],
+) {
   return rawMoments.filter((moment) => {
     if (moment.recordingId !== recording.id) return false;
     if (!(
@@ -69,7 +33,7 @@ function filterRawMoments(recording: Recording, rawMoments: RawMoment[]) {
   });
 }
 
-function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
+export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
   if (rawMoments.length === 0) return [];
 
   const sortedMoments = [...rawMoments].sort((a, b) => a.startMs - b.startMs);
@@ -109,11 +73,14 @@ function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
   return mergedMoments;
 }
 
-function convertToClips(recording: Recording, rawMoments: RawMoment[]): Clip[] {
+export function convertToClips(
+  recording: Recording,
+  rawMoments: RawMoment[],
+): Clip[] {
   return rawMoments.map((moment) => {
-    const paddedStart = Math.max(moment.startMs - PRE_PAD_MS, 0);
+    const paddedStart = Math.max(moment.startMs - consts.PRE_PAD_MS, 0);
     const paddedEnd = Math.min(
-      moment.endMs + POST_PAD_MS,
+      moment.endMs + consts.POST_PAD_MS,
       recording.durationMs,
     );
 
@@ -129,10 +96,10 @@ function convertToClips(recording: Recording, rawMoments: RawMoment[]): Clip[] {
   });
 }
 
-function selectClips(clips: Clip[]): [Clip[], Clip[]] {
+export function selectClips(clips: Clip[]): [Clip[], Clip[]] {
   const clipsByImportance = [...clips].sort(
     (a, b) =>
-      PLAY_TYPE_PRIORITY[a.type] - PLAY_TYPE_PRIORITY[b.type] ||
+      consts.PLAY_TYPE_PRIORITY[a.type] - consts.PLAY_TYPE_PRIORITY[b.type] ||
       b.confidence - a.confidence,
   );
   const selectedClips: Clip[] = [];
@@ -140,10 +107,13 @@ function selectClips(clips: Clip[]): [Clip[], Clip[]] {
 
   let index = 0;
   let reelLength = 0;
-  while (reelLength < MAX_REEL_LENGTH && index < clipsByImportance.length) {
+  while (
+    reelLength < consts.MAX_REEL_LENGTH &&
+    index < clipsByImportance.length
+  ) {
     const clipLength =
       clipsByImportance[index].endMs - clipsByImportance[index].startMs;
-    if (reelLength + clipLength <= MAX_REEL_LENGTH) {
+    if (reelLength + clipLength <= consts.MAX_REEL_LENGTH) {
       if (
         selectedClips.some(
           (clip) =>
@@ -181,6 +151,6 @@ export function buildReel(recording: Recording, rawMoments: RawMoment[]): Reel {
     shareable: false,
     clips: sortedSelectedClips,
     candidates: extraClips,
-    capMs: MAX_REEL_LENGTH,
+    capMs: consts.MAX_REEL_LENGTH,
   };
 }
