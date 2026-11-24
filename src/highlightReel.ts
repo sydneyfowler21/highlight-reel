@@ -86,10 +86,9 @@ function assertValidRecording(
 }
 
 export function filterRawMoments(
-  recording: UncheckedRecording,
+  recording: Recording,
   rawMoments: unknown[],
 ): RawMoment[] {
-  assertValidRecording(recording);
   return rawMoments.filter(
     (moment): moment is RawMoment =>
       isObject(moment) &&
@@ -132,10 +131,9 @@ export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
 }
 
 export function convertToClips(
-  recording: UncheckedRecording,
+  recording: Recording,
   rawMoments: RawMoment[],
 ): Clip[] {
-  assertValidRecording(recording);
   return rawMoments.map((moment) => {
     const paddedStart = Math.max(moment.startMs - consts.PRE_PAD_MS, 0);
     const paddedEnd = Math.min(
@@ -201,6 +199,7 @@ export function buildReel(
   recording: UncheckedRecording,
   rawMoments: unknown[],
 ): Reel {
+  assertValidRecording(recording);
   const filteredMoments = filterRawMoments(recording, rawMoments);
   const mergedMoments = mergeRawMoments(filteredMoments);
   const clips = convertToClips(recording, mergedMoments);

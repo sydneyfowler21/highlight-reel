@@ -196,37 +196,15 @@ describe('filterRawMoments', () => {
     ).toEqual([fixtures.validSave]);
   });
 
-  it.each(invalidDurations)(
-    'A recording with a durationMs of %p throws',
-    (durationMs) => {
-      expect(() =>
-        filterRawMoments(recordingLasting(durationMs), [fixtures.validSave]),
-      ).toThrow(RangeError);
-    },
-  );
-
   it('A 1ms recording is valid and keeps a moment that fills it', () => {
     const moment = rawMoment(PlayType.Goal, 0, 1);
     expect(filterRawMoments(recordingLasting(1), [moment])).toEqual([moment]);
-  });
-
-  it.each(invalidIds)('A recording with an id of %p throws', (id) => {
-    expect(() =>
-      filterRawMoments(recordingWithId(id), [fixtures.validSave]),
-    ).toThrow(RangeError);
   });
 
   it('A moment with no recordingId is skipped', () => {
     expect(
       filterRawMoments(fixtures.recording10min, [withoutField('recordingId')]),
     ).toEqual([]);
-  });
-
-  it('A recording with an id of 0 keeps its moments', () => {
-    const moment = rawMoment(PlayType.Goal, 100_000, 104_000, {
-      recordingId: 0,
-    });
-    expect(filterRawMoments(recordingWithId(0), [moment])).toEqual([moment]);
   });
 });
 
@@ -671,21 +649,6 @@ describe('convertToClips', () => {
     expect(result.players).not.toBe(moment.players);
   });
 
-  it.each(invalidDurations)(
-    'A recording with a durationMs of %p throws',
-    (durationMs) => {
-      expect(() =>
-        convertToClips(recordingLasting(durationMs), [fixtures.validSave]),
-      ).toThrow(RangeError);
-    },
-  );
-
-  it.each(invalidIds)('A recording with an id of %p throws', (id) => {
-    expect(() =>
-      convertToClips(recordingWithId(id), [fixtures.validSave]),
-    ).toThrow(RangeError);
-  });
-
   it('Padding after a moment in a 1ms recording clamps to 1ms', () => {
     expect(
       convertToClips(recordingLasting(1), [rawMoment(PlayType.Goal, 0, 1)]),
@@ -896,6 +859,20 @@ describe('buildReel', () => {
 
   it('A recording with a NaN durationMs throws even with no moments', () => {
     expect(() => buildReel(recordingLasting(NaN), [])).toThrow(RangeError);
+  });
+
+  it('A 1ms recording is valid and builds a 1ms clip', () => {
+    expect(
+      buildReel(recordingLasting(1), [rawMoment(PlayType.Goal, 0, 1)]).clips,
+    ).toEqual([clip('clip-0', PlayType.Goal, 0, 1)]);
+  });
+
+  it('A recording with an id of 0 is valid and keeps its moments', () => {
+    expect(
+      buildReel(recordingWithId(0), [
+        rawMoment(PlayType.Goal, 100_000, 104_000, { recordingId: 0 }),
+      ]).clips,
+    ).toEqual([clip('clip-98000', PlayType.Goal, 98_000, 107_000)]);
   });
 
   it.each(invalidIds)(
