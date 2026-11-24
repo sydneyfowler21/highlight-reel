@@ -10,7 +10,9 @@ import {
 function normalize(value: unknown): unknown {
   if (Array.isArray(value)) {
     const items = value.map(normalize);
-    const allPrimitive = items.every(v => v === null || typeof v !== 'object');
+    const allPrimitive = items.every(
+      (v) => v === null || typeof v !== 'object',
+    );
     return allPrimitive ? [...items].sort() : items;
   }
   if (value !== null && typeof value === 'object') {
@@ -35,7 +37,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Goal,
     startMs: 58000, // 0:58
     endMs: 62000, // 1:02
-    players: ["p1", "p3"],
+    players: ['p1', 'p3'],
     confidence: 0.8,
   },
   {
@@ -43,7 +45,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Goal,
     startMs: 60000, // 1:00
     endMs: 65000, // 1:05
-    players: ["p1", "p2"],
+    players: ['p1', 'p2'],
     confidence: 0.95,
   },
 
@@ -53,7 +55,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Goal,
     startMs: 508000, // 8:28
     endMs: 512000, // 8:32
-    players: ["p3"],
+    players: ['p3'],
     confidence: 0.9,
   },
 
@@ -63,7 +65,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Goal,
     startMs: 596000, // 9:56
     endMs: 599000, // 9:59
-    players: ["p1"],
+    players: ['p1'],
     confidence: 0.88,
   },
 
@@ -73,7 +75,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Save,
     startMs: 1000, // 0:01
     endMs: 4000, // 0:04
-    players: ["p4"],
+    players: ['p4'],
     confidence: 0.8,
   },
 
@@ -83,7 +85,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Save,
     startMs: 120000, // 2:00
     endMs: 124000, // 2:04
-    players: ["p5"],
+    players: ['p5'],
     confidence: 0.92,
   },
 
@@ -94,7 +96,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Save,
     startMs: 126000, // 2:06
     endMs: 130000, // 2:10
-    players: ["p6"],
+    players: ['p6'],
     confidence: 0.4,
   },
 
@@ -104,7 +106,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.BigPlay,
     startMs: 200000, // 3:20
     endMs: 206000, // 3:26
-    players: ["p7"],
+    players: ['p7'],
     confidence: 0.85,
   },
   {
@@ -112,7 +114,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.BigPlay,
     startMs: 250000, // 4:10
     endMs: 255000, // 4:15
-    players: ["p8"],
+    players: ['p8'],
     confidence: 0.7,
   },
   {
@@ -120,7 +122,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.BigPlay,
     startMs: 300000, // 5:00
     endMs: 306000, // 5:06
-    players: ["p9"],
+    players: ['p9'],
     confidence: 0.6,
   },
 
@@ -130,7 +132,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Skill,
     startMs: 80000, // 1:20
     endMs: 81000, // 1:21
-    players: ["p10"],
+    players: ['p10'],
     confidence: 0.8,
   },
   // Same length, lower confidence; left out, but a clear backfill if the in-reel skill is rejected
@@ -139,7 +141,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Skill,
     startMs: 350000, // 5:50
     endMs: 351000, // 5:51
-    players: ["p11"],
+    players: ['p11'],
     confidence: 0.65,
   },
 
@@ -148,7 +150,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.NearMiss,
     startMs: 450000, // 7:30
     endMs: 454000, // 7:34
-    players: ["p12"],
+    players: ['p12'],
     confidence: 0.88,
   },
   {
@@ -156,7 +158,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.NearMiss,
     startMs: 470000, // 7:50
     endMs: 475000, // 7:55
-    players: ["p13"],
+    players: ['p13'],
     confidence: 0.6,
   },
 
@@ -166,7 +168,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Goal,
     startMs: 200000,
     endMs: 100000, // end before start
-    players: ["p1"],
+    players: ['p1'],
     confidence: 0.9,
   },
   {
@@ -174,7 +176,7 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Save,
     startMs: 140000,
     endMs: 145000,
-    players: ["p5"],
+    players: ['p5'],
     confidence: 1.4, // outside [0, 1]
   },
   {
@@ -182,15 +184,15 @@ const seedRawMoments: RawMoment[] = [
     type: PlayType.Goal,
     startMs: 60000,
     endMs: 65000,
-    players: ["p1"],
+    players: ['p1'],
     confidence: 0.99,
   },
   {
     recordingId: 1,
-    type: "foul" as any, // not a valid play type
+    type: 'foul' as any, // not a valid play type
     startMs: 90000,
     endMs: 95000,
-    players: ["p1"],
+    players: ['p1'],
     confidence: 0.9,
   },
 ];
@@ -199,123 +201,123 @@ const expectedReel: Reel = {
   shareable: false,
   clips: [
     {
-      id: "clip-0",
+      id: 'clip-0',
       type: PlayType.Save,
       startMs: 0,
       endMs: 7000,
-      players: ["p4"],
+      players: ['p4'],
       confidence: 0.8,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-56000",
+      id: 'clip-56000',
       type: PlayType.Goal,
       startMs: 56000,
       endMs: 68000,
-      players: ["p1", "p3", "p2"],
+      players: ['p1', 'p3', 'p2'],
       confidence: 0.95,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-78000",
+      id: 'clip-78000',
       type: PlayType.Skill,
       startMs: 78000,
       endMs: 84000,
-      players: ["p10"],
+      players: ['p10'],
       confidence: 0.8,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-118000",
+      id: 'clip-118000',
       type: PlayType.Save,
       startMs: 118000,
       endMs: 127000,
-      players: ["p5"],
+      players: ['p5'],
       confidence: 0.92,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-198000",
+      id: 'clip-198000',
       type: PlayType.BigPlay,
       startMs: 198000,
       endMs: 209000,
-      players: ["p7"],
+      players: ['p7'],
       confidence: 0.85,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-506000",
+      id: 'clip-506000',
       type: PlayType.Goal,
       startMs: 506000,
       endMs: 515000,
-      players: ["p3"],
+      players: ['p3'],
       confidence: 0.9,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-594000",
+      id: 'clip-594000',
       type: PlayType.Goal,
       startMs: 594000,
       endMs: 600000,
-      players: ["p1"],
+      players: ['p1'],
       confidence: 0.88,
-      status: "pending",
+      status: 'pending',
     },
   ],
   candidates: [
     {
-      id: "clip-124000",
+      id: 'clip-124000',
       type: PlayType.Save,
       startMs: 124000,
       endMs: 133000,
-      players: ["p6"],
+      players: ['p6'],
       confidence: 0.4,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-248000",
+      id: 'clip-248000',
       type: PlayType.BigPlay,
       startMs: 248000,
       endMs: 258000,
-      players: ["p8"],
+      players: ['p8'],
       confidence: 0.7,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-298000",
+      id: 'clip-298000',
       type: PlayType.BigPlay,
       startMs: 298000,
       endMs: 309000,
-      players: ["p9"],
+      players: ['p9'],
       confidence: 0.6,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-348000",
+      id: 'clip-348000',
       type: PlayType.Skill,
       startMs: 348000,
       endMs: 354000,
-      players: ["p11"],
+      players: ['p11'],
       confidence: 0.65,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-448000",
+      id: 'clip-448000',
       type: PlayType.NearMiss,
       startMs: 448000,
       endMs: 457000,
-      players: ["p12"],
+      players: ['p12'],
       confidence: 0.88,
-      status: "pending",
+      status: 'pending',
     },
     {
-      id: "clip-468000",
+      id: 'clip-468000',
       type: PlayType.NearMiss,
       startMs: 468000,
       endMs: 478000,
-      players: ["p13"],
+      players: ['p13'],
       confidence: 0.6,
-      status: "pending",
+      status: 'pending',
     },
   ],
   capMs: 60000,
@@ -323,8 +325,8 @@ const expectedReel: Reel = {
 
 describe('buildReel', () => {
   it('buildReel: happy path', () => {
-    expect(JSON.stringify(normalize(buildReel(seedRecording, seedRawMoments)))).toBe(
-      JSON.stringify(normalize(expectedReel)),
-    );
+    expect(
+      JSON.stringify(normalize(buildReel(seedRecording, seedRawMoments))),
+    ).toBe(JSON.stringify(normalize(expectedReel)));
   });
 });
