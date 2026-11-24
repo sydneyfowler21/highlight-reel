@@ -40,34 +40,22 @@ export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
   const mergedMoments = [sortedMoments[0]];
 
   for (let i = 1; i < sortedMoments.length; i++) {
-    const lastMergeIndex = mergedMoments.length - 1;
-    const sameType =
-      sortedMoments[i].type === mergedMoments[lastMergeIndex].type;
-    const overlapping =
-      sortedMoments[i].startMs - consts.ONE_SECOND_MS <=
-      mergedMoments[lastMergeIndex].endMs;
-    if (sameType && overlapping) {
-      mergedMoments[lastMergeIndex] = {
-        recordingId: mergedMoments[lastMergeIndex].recordingId,
-        startMs: mergedMoments[lastMergeIndex].startMs,
-        endMs:
-          sortedMoments[i].endMs > mergedMoments[lastMergeIndex].endMs
-            ? sortedMoments[i].endMs
-            : mergedMoments[lastMergeIndex].endMs,
-        type: mergedMoments[lastMergeIndex].type,
-        confidence:
-          sortedMoments[i].confidence > mergedMoments[lastMergeIndex].confidence
-            ? sortedMoments[i].confidence
-            : mergedMoments[lastMergeIndex].confidence,
-        players: [
-          ...new Set([
-            ...sortedMoments[i].players,
-            ...mergedMoments[lastMergeIndex].players,
-          ]),
-        ],
+    const moment = sortedMoments[i];
+    const lastIndex = mergedMoments.length - 1;
+    const last = mergedMoments[lastIndex];
+    const sameType = moment.type === last.type;
+    const withinMergeGap = moment.startMs - consts.MERGE_GAP_MS <= last.endMs;
+    if (sameType && withinMergeGap) {
+      mergedMoments[lastIndex] = {
+        recordingId: last.recordingId,
+        startMs: last.startMs,
+        endMs: Math.max(last.endMs, moment.endMs),
+        type: last.type,
+        confidence: Math.max(last.confidence, moment.confidence),
+        players: [...new Set([...moment.players, ...last.players])],
       };
     } else {
-      mergedMoments.push(sortedMoments[i]);
+      mergedMoments.push(moment);
     }
   }
 
