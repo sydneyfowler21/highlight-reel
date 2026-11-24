@@ -44,7 +44,8 @@ export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
     const sameType =
       sortedMoments[i].type === mergedMoments[lastMergeIndex].type;
     const overlapping =
-      sortedMoments[i].startMs < mergedMoments[lastMergeIndex].endMs;
+      sortedMoments[i].startMs - consts.ONE_SECOND_MS <=
+      mergedMoments[lastMergeIndex].endMs;
     if (sameType && overlapping) {
       mergedMoments[lastMergeIndex] = {
         recordingId: mergedMoments[lastMergeIndex].recordingId,

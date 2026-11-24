@@ -240,8 +240,65 @@ describe('mergeRawMoments', () => {
     ]);
   });
 
-  // Passes today only because the merge never joins moments across any gap.
-  // It becomes a real check of the 1s boundary once the 1s merge fix lands.
+  it('Same-type moments that touch (gap 0) are one play', () => {
+    expect(mergeRawMoments([fixtures.mergeGoalA, fixtures.touchB])).toEqual([
+      rawMoment(PlayType.Goal, 10_000, 30_000, {
+        players: ['p2', 'p1'],
+        confidence: 0.9,
+      }),
+    ]);
+  });
+
+  it('Same-type moments exactly 1s apart are one play', () => {
+    expect(mergeRawMoments([fixtures.mergeGoalA, fixtures.gap1sB])).toEqual([
+      rawMoment(PlayType.Goal, 10_000, 30_000, {
+        players: ['p2', 'p1'],
+        confidence: 0.9,
+      }),
+    ]);
+  });
+
+  it('Same-type moments 0.5s apart are one play', () => {
+    expect(
+      mergeRawMoments([
+        rawMoment(PlayType.Save, 10_000, 20_000, {
+          players: ['p4'],
+          confidence: 0.6,
+        }),
+        rawMoment(PlayType.Save, 20_500, 28_000, {
+          players: ['p5'],
+          confidence: 0.8,
+        }),
+      ]),
+    ).toEqual([
+      rawMoment(PlayType.Save, 10_000, 28_000, {
+        players: ['p5', 'p4'],
+        confidence: 0.8,
+      }),
+    ]);
+  });
+
+  it('A chain of same-type moments each 1s apart becomes one play', () => {
+    expect(
+      mergeRawMoments([
+        rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
+        rawMoment(PlayType.Goal, 2_000, 2_500, {
+          players: ['p2'],
+          confidence: 0.7,
+        }),
+        rawMoment(PlayType.Goal, 3_500, 4_000, {
+          players: ['p3'],
+          confidence: 0.9,
+        }),
+      ]),
+    ).toEqual([
+      rawMoment(PlayType.Goal, 0, 4_000, {
+        players: ['p3', 'p2', 'p1'],
+        confidence: 0.9,
+      }),
+    ]);
+  });
+
   it('Same-type moments more than 1s apart stay separate', () => {
     expect(mergeRawMoments([fixtures.mergeGoalA, fixtures.gap1001B])).toEqual([
       fixtures.mergeGoalA,
@@ -267,8 +324,6 @@ describe('mergeRawMoments', () => {
     ]);
   });
 
-  // Passes today only because the merge never joins moments across any gap.
-  // It becomes a real check of the same-type rule once the 1s merge fix lands.
   it('Different-type moments within 1s never merge', () => {
     expect(
       mergeRawMoments([
