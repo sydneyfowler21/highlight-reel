@@ -1,5 +1,7 @@
 # Highlight Reel
 
+[![CI](https://github.com/sydneyfowler21/highlight-reel/actions/workflows/ci.yml/badge.svg)](https://github.com/sydneyfowler21/highlight-reel/actions/workflows/ci.yml)
+
 This project turns a youth-sports game recording and a messy list of auto-detected moments into a 60-second highlight reel a coach can review and then share with the team. Each raw detection has a play type, a time range, the players involved, and a confidence score. The same play may be detected more than once, some moments sit at the very start or end of the game, some rows are invalid, and there is often more action than will fit in a short recap.
 
 ## Rules
@@ -20,15 +22,182 @@ npm run typecheck
 
 `npm test` runs the included happy-path fixture and prints how many checks passed or failed. `npm run typecheck` type-checks the project with TypeScript in strict mode.
 
+## Usage
+
+The included fixture is a 10-minute recording and the raw moments below (`seedRecording` and `seedRawMoments` in `src/highlightReel.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
+
+Input:
+
+```json
+{
+  "recording": {
+    "id": 1,
+    "durationMs": 600000
+  },
+  "rawMoments": [
+    { "recordingId": 1, "type": "goal", "startMs": 58000, "endMs": 62000, "players": ["p1", "p3"], "confidence": 0.8 },
+    { "recordingId": 1, "type": "goal", "startMs": 60000, "endMs": 65000, "players": ["p1", "p2"], "confidence": 0.95 },
+    { "recordingId": 1, "type": "goal", "startMs": 508000, "endMs": 512000, "players": ["p3"], "confidence": 0.9 },
+    { "recordingId": 1, "type": "goal", "startMs": 596000, "endMs": 599000, "players": ["p1"], "confidence": 0.88 },
+    { "recordingId": 1, "type": "save", "startMs": 1000, "endMs": 4000, "players": ["p4"], "confidence": 0.8 },
+    { "recordingId": 1, "type": "save", "startMs": 120000, "endMs": 124000, "players": ["p5"], "confidence": 0.92 },
+    { "recordingId": 1, "type": "save", "startMs": 126000, "endMs": 130000, "players": ["p6"], "confidence": 0.4 },
+    { "recordingId": 1, "type": "bigPlay", "startMs": 200000, "endMs": 206000, "players": ["p7"], "confidence": 0.85 },
+    { "recordingId": 1, "type": "bigPlay", "startMs": 250000, "endMs": 255000, "players": ["p8"], "confidence": 0.7 },
+    { "recordingId": 1, "type": "bigPlay", "startMs": 300000, "endMs": 306000, "players": ["p9"], "confidence": 0.6 },
+    { "recordingId": 1, "type": "skill", "startMs": 80000, "endMs": 81000, "players": ["p10"], "confidence": 0.8 },
+    { "recordingId": 1, "type": "skill", "startMs": 350000, "endMs": 351000, "players": ["p11"], "confidence": 0.65 },
+    { "recordingId": 1, "type": "nearMiss", "startMs": 450000, "endMs": 454000, "players": ["p12"], "confidence": 0.88 },
+    { "recordingId": 1, "type": "nearMiss", "startMs": 470000, "endMs": 475000, "players": ["p13"], "confidence": 0.6 },
+    { "recordingId": 1, "type": "goal", "startMs": 200000, "endMs": 100000, "players": ["p1"], "confidence": 0.9 },
+    { "recordingId": 1, "type": "save", "startMs": 140000, "endMs": 145000, "players": ["p5"], "confidence": 1.4 },
+    { "recordingId": 2, "type": "goal", "startMs": 60000, "endMs": 65000, "players": ["p1"], "confidence": 0.99 },
+    { "recordingId": 1, "type": "foul", "startMs": 90000, "endMs": 95000, "players": ["p1"], "confidence": 0.9 }
+  ]
+}
+```
+
+Output:
+
+```json
+{
+  "shareable": false,
+  "clips": [
+    {
+      "id": "clip-0",
+      "startMs": 0,
+      "endMs": 7000,
+      "type": "save",
+      "confidence": 0.8,
+      "players": ["p4"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-56000",
+      "startMs": 56000,
+      "endMs": 68000,
+      "type": "goal",
+      "confidence": 0.95,
+      "players": ["p1", "p2", "p3"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-78000",
+      "startMs": 78000,
+      "endMs": 84000,
+      "type": "skill",
+      "confidence": 0.8,
+      "players": ["p10"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-118000",
+      "startMs": 118000,
+      "endMs": 127000,
+      "type": "save",
+      "confidence": 0.92,
+      "players": ["p5"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-198000",
+      "startMs": 198000,
+      "endMs": 209000,
+      "type": "bigPlay",
+      "confidence": 0.85,
+      "players": ["p7"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-506000",
+      "startMs": 506000,
+      "endMs": 515000,
+      "type": "goal",
+      "confidence": 0.9,
+      "players": ["p3"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-594000",
+      "startMs": 594000,
+      "endMs": 600000,
+      "type": "goal",
+      "confidence": 0.88,
+      "players": ["p1"],
+      "status": "pending"
+    }
+  ],
+  "candidates": [
+    {
+      "id": "clip-124000",
+      "startMs": 124000,
+      "endMs": 133000,
+      "type": "save",
+      "confidence": 0.4,
+      "players": ["p6"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-248000",
+      "startMs": 248000,
+      "endMs": 258000,
+      "type": "bigPlay",
+      "confidence": 0.7,
+      "players": ["p8"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-298000",
+      "startMs": 298000,
+      "endMs": 309000,
+      "type": "bigPlay",
+      "confidence": 0.6,
+      "players": ["p9"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-348000",
+      "startMs": 348000,
+      "endMs": 354000,
+      "type": "skill",
+      "confidence": 0.65,
+      "players": ["p11"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-448000",
+      "startMs": 448000,
+      "endMs": 457000,
+      "type": "nearMiss",
+      "confidence": 0.88,
+      "players": ["p12"],
+      "status": "pending"
+    },
+    {
+      "id": "clip-468000",
+      "startMs": 468000,
+      "endMs": 478000,
+      "type": "nearMiss",
+      "confidence": 0.6,
+      "players": ["p13"],
+      "status": "pending"
+    }
+  ],
+  "capMs": 60000
+}
+```
+
 ## Design
 
 The reel is built as a pipeline of small, pure functions:
 
 1. **Filter** drops invalid or out-of-scope raw moments.
 2. **Merge** combines overlapping detections of the same play type into one moment.
-3. **Pad** (`convertToClips`) adds watchable time before and after each merged moment, clamps to the recording, and produces clips that start in a pending review state.
-4. **Select** fills the 60-second cap by taking goals first, then the other play types in priority order, skipping overlaps and clips that do not fit.
+3. **Pad/clamp** adds watchable time before and after each merged moment, clamps the clip to the recording, and leaves it pending review.
+4. **Select under the cap** fills the 60-second cap by taking goals first, then the other play types in priority order, skipping overlaps and clips that do not fit.
 5. **Sort** puts the selected clips in chronological order.
+
+> TODO: why it's built this way (author to write)
 
 A newly built reel always reports `shareable` as false, because every clip still needs review. The current test is one end-to-end check of this pipeline against a 10-minute fixture.
 
