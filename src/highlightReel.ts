@@ -10,7 +10,20 @@ import {
 export { PlayType } from './types';
 export type { Clip, RawMoment, Recording, Reel } from './types';
 
-function hasFiniteNumbers(moment: RawMoment): boolean {
+type UncheckedMoment = { [Field in keyof RawMoment]?: unknown };
+
+type CheckedFields<Field extends keyof RawMoment> = UncheckedMoment &
+  Pick<RawMoment, Field>;
+
+const PLAY_TYPES: ReadonlySet<unknown> = new Set(Object.values(PlayType));
+
+function isObject(value: unknown): value is UncheckedMoment {
+  return typeof value === 'object' && value !== null;
+}
+
+function hasFiniteNumbers(
+  moment: UncheckedMoment,
+): moment is CheckedFields<'startMs' | 'endMs' | 'confidence'> {
   return (
     Number.isFinite(moment.startMs) &&
     Number.isFinite(moment.endMs) &&
@@ -18,31 +31,37 @@ function hasFiniteNumbers(moment: RawMoment): boolean {
   );
 }
 
-function hasValidPlayers(moment: RawMoment): boolean {
+function hasValidPlayers(
+  moment: UncheckedMoment,
+): moment is CheckedFields<'players'> {
   return (
     Array.isArray(moment.players) &&
-    moment.players.every((player) => typeof player === 'string')
+    moment.players.every((player: unknown) => typeof player === 'string')
   );
 }
 
-function fitsInRecording(moment: RawMoment, recording: Recording): boolean {
+function fitsInRecording(
+  moment: Pick<RawMoment, 'startMs' | 'endMs'>,
+  recording: Recording,
+): boolean {
   return moment.startMs < moment.endMs && moment.endMs <= recording.durationMs;
 }
 
-function hasValidConfidence(moment: RawMoment): boolean {
+function hasValidConfidence(moment: Pick<RawMoment, 'confidence'>): boolean {
   return moment.confidence >= 0 && moment.confidence <= 1;
 }
 
-function isKnownPlayType(type: PlayType): boolean {
-  return Object.values(PlayType).includes(type);
+function isKnownPlayType(type: unknown): type is PlayType {
+  return PLAY_TYPES.has(type);
 }
 
 export function filterRawMoments(
   recording: Recording,
-  rawMoments: RawMoment[],
+  rawMoments: unknown[],
 ): RawMoment[] {
   return rawMoments.filter(
-    (moment) =>
+    (moment): moment is RawMoment =>
+      isObject(moment) &&
       moment.recordingId === recording.id &&
       hasFiniteNumbers(moment) &&
       hasValidPlayers(moment) &&
@@ -146,7 +165,7 @@ export function selectClips(clips: Clip[]): [Clip[], Clip[]] {
   return [selectedClips, extraClips];
 }
 
-export function buildReel(recording: Recording, rawMoments: RawMoment[]): Reel {
+export function buildReel(recording: Recording, rawMoments: unknown[]): Reel {
   const filteredMoments = filterRawMoments(recording, rawMoments);
   const mergedMoments = mergeRawMoments(filteredMoments);
   const clips = convertToClips(recording, mergedMoments);

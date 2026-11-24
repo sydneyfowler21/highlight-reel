@@ -11,10 +11,10 @@ import * as fixtures from './fixtures';
 import * as seedGame from './seedGame';
 import { PlayType, type RawMoment } from '../types';
 
-function withoutField(field: keyof RawMoment): RawMoment {
+function withoutField(field: keyof RawMoment): Partial<RawMoment> {
   const moment: Partial<RawMoment> = rawMoment(PlayType.Goal, 100_000, 200_000);
   delete moment[field];
-  return moment as RawMoment;
+  return moment;
 }
 
 function ignoringPlayerOrder<T extends { players: string[] }>(items: T[]): T[] {
@@ -45,10 +45,17 @@ describe('filterRawMoments', () => {
   it('A moment with a play type that is not in the known set is skipped', () => {
     expect(
       filterRawMoments(fixtures.recording10min, [
-        rawMoment('foul' as PlayType, 100_000, 200_000, { confidence: 0.9 }),
+        { ...rawMoment(PlayType.Goal, 100_000, 200_000), type: 'foul' },
       ]),
     ).toEqual([]);
   });
+
+  it.each([[null], ['goal']])(
+    'A value that is not an object, like %p, is skipped',
+    (value) => {
+      expect(filterRawMoments(fixtures.recording10min, [value])).toEqual([]);
+    },
+  );
 
   it('A moment with a confidence score under 0 is skipped', () => {
     expect(
@@ -140,9 +147,7 @@ describe('filterRawMoments', () => {
     (players) => {
       expect(
         filterRawMoments(fixtures.recording10min, [
-          rawMoment(PlayType.Goal, 100_000, 200_000, {
-            players: players as unknown as string[],
-          }),
+          { ...rawMoment(PlayType.Goal, 100_000, 200_000), players },
         ]),
       ).toEqual([]);
     },
@@ -164,7 +169,7 @@ describe('filterRawMoments', () => {
           recordingId: 2,
           confidence: 0.99,
         }),
-        rawMoment('foul' as PlayType, 90_000, 95_000, { confidence: 0.9 }),
+        { ...rawMoment(PlayType.Goal, 90_000, 95_000), type: 'foul' },
         rawMoment(PlayType.Goal, 50_000, 50_000, { confidence: 0.9 }),
       ]),
     ).toEqual([fixtures.validSave]);

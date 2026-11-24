@@ -1,5 +1,5 @@
 import { at, clip, rawMoment } from './builders';
-import { PlayType, type RawMoment, type Recording, type Reel } from '../types';
+import { PlayType, type Recording, type Reel } from '../types';
 
 export const recording: Recording = { id: 1, durationMs: at('10:00') };
 
@@ -92,10 +92,13 @@ const malformed = {
     recordingId: 2,
     confidence: 0.99,
   }),
-  unknownPlayType: rawMoment('foul' as PlayType, at('1:30'), at('1:35')),
+  unknownPlayType: {
+    ...rawMoment(PlayType.Goal, at('1:30'), at('1:35')),
+    type: 'foul',
+  },
 };
 
-export const rawMoments: RawMoment[] = [
+export const rawMoments: unknown[] = [
   goalDetectedEarly,
   sameGoalDetectedLater,
   midGameGoal,
