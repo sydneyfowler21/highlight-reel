@@ -112,7 +112,7 @@ export function convertToClips(
   recording: Recording,
   rawMoments: RawMoment[],
 ): Clip[] {
-  return rawMoments.map((moment) => {
+  return rawMoments.map((moment, index) => {
     const paddedStart = Math.max(moment.startMs - consts.PRE_PAD_MS, 0);
     const paddedEnd = Math.min(
       moment.endMs + consts.POST_PAD_MS,
@@ -120,7 +120,7 @@ export function convertToClips(
     );
 
     return {
-      id: `clip-${paddedStart}`,
+      id: `clip-${index}`,
       startMs: paddedStart,
       endMs: paddedEnd,
       type: moment.type,

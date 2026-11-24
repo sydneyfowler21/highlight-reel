@@ -123,51 +123,51 @@ export const expectedReel: Reel = {
       players: ['p4'],
       confidence: 0.8,
     }),
-    clip('clip-56000', PlayType.Goal, at('0:56'), at('1:08'), {
+    clip('clip-1', PlayType.Goal, at('0:56'), at('1:08'), {
       players: ['p1', 'p3', 'p2'],
       confidence: 0.95,
     }),
-    clip('clip-78000', PlayType.Skill, at('1:18'), at('1:24'), {
+    clip('clip-2', PlayType.Skill, at('1:18'), at('1:24'), {
       players: ['p10'],
       confidence: 0.8,
     }),
-    clip('clip-118000', PlayType.Save, at('1:58'), at('2:07'), {
+    clip('clip-3', PlayType.Save, at('1:58'), at('2:07'), {
       players: ['p5'],
       confidence: 0.92,
     }),
-    clip('clip-198000', PlayType.BigPlay, at('3:18'), at('3:29'), {
+    clip('clip-5', PlayType.BigPlay, at('3:18'), at('3:29'), {
       players: ['p7'],
       confidence: 0.85,
     }),
-    clip('clip-506000', PlayType.Goal, at('8:26'), at('8:35'), {
+    clip('clip-11', PlayType.Goal, at('8:26'), at('8:35'), {
       players: ['p3'],
     }),
-    clip('clip-594000', PlayType.Goal, at('9:54'), at('10:00'), {
+    clip('clip-12', PlayType.Goal, at('9:54'), at('10:00'), {
       confidence: 0.88,
     }),
   ],
   candidates: [
-    clip('clip-124000', PlayType.Save, at('2:04'), at('2:13'), {
+    clip('clip-4', PlayType.Save, at('2:04'), at('2:13'), {
       players: ['p6'],
       confidence: 0.4,
     }),
-    clip('clip-248000', PlayType.BigPlay, at('4:08'), at('4:18'), {
+    clip('clip-6', PlayType.BigPlay, at('4:08'), at('4:18'), {
       players: ['p8'],
       confidence: 0.7,
     }),
-    clip('clip-298000', PlayType.BigPlay, at('4:58'), at('5:09'), {
+    clip('clip-7', PlayType.BigPlay, at('4:58'), at('5:09'), {
       players: ['p9'],
       confidence: 0.6,
     }),
-    clip('clip-348000', PlayType.Skill, at('5:48'), at('5:54'), {
+    clip('clip-8', PlayType.Skill, at('5:48'), at('5:54'), {
       players: ['p11'],
       confidence: 0.65,
     }),
-    clip('clip-448000', PlayType.NearMiss, at('7:28'), at('7:37'), {
+    clip('clip-9', PlayType.NearMiss, at('7:28'), at('7:37'), {
       players: ['p12'],
       confidence: 0.88,
     }),
-    clip('clip-468000', PlayType.NearMiss, at('7:48'), at('7:58'), {
+    clip('clip-10', PlayType.NearMiss, at('7:48'), at('7:58'), {
       players: ['p13'],
       confidence: 0.6,
     }),

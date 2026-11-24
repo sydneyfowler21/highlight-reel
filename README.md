@@ -10,6 +10,7 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 - Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
 - Two raw moments are the same play when they share a recording, have the same play type, and their time ranges overlap or are within one second of each other. Merge those moments into one: earliest start, latest end, highest confidence, and the combined player list.
 - Add two seconds of padding before each merged moment and three seconds after it, then clamp the result so a clip never starts before 0:00 and never ends after the recording does.
+- Give every clip a unique id: `clip-<n>`, numbered from 0 in start order.
 - Cap the reel at 60 seconds. Include as many goals as will fit, with no overlapping clips. Fill any remaining time in this order: save, then big play, then skill, then near miss. Within the same play type, prefer higher confidence. Skip a candidate that overlaps a clip already in the reel or that does not fit the remaining time. Sort the finished reel by start time.
 - A newly built reel is not shareable. Shareable is true only when the reel has at least one clip, every clip in it is approved, and the total duration is at or under the cap.
 
@@ -204,7 +205,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-56000",
+      "id": "clip-1",
       "startMs": 56000,
       "endMs": 68000,
       "type": "goal",
@@ -213,7 +214,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-78000",
+      "id": "clip-2",
       "startMs": 78000,
       "endMs": 84000,
       "type": "skill",
@@ -222,7 +223,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-118000",
+      "id": "clip-3",
       "startMs": 118000,
       "endMs": 127000,
       "type": "save",
@@ -231,7 +232,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-198000",
+      "id": "clip-5",
       "startMs": 198000,
       "endMs": 209000,
       "type": "bigPlay",
@@ -240,7 +241,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-506000",
+      "id": "clip-11",
       "startMs": 506000,
       "endMs": 515000,
       "type": "goal",
@@ -249,7 +250,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-594000",
+      "id": "clip-12",
       "startMs": 594000,
       "endMs": 600000,
       "type": "goal",
@@ -260,7 +261,7 @@ Output:
   ],
   "candidates": [
     {
-      "id": "clip-124000",
+      "id": "clip-4",
       "startMs": 124000,
       "endMs": 133000,
       "type": "save",
@@ -269,7 +270,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-248000",
+      "id": "clip-6",
       "startMs": 248000,
       "endMs": 258000,
       "type": "bigPlay",
@@ -278,7 +279,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-298000",
+      "id": "clip-7",
       "startMs": 298000,
       "endMs": 309000,
       "type": "bigPlay",
@@ -287,7 +288,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-348000",
+      "id": "clip-8",
       "startMs": 348000,
       "endMs": 354000,
       "type": "skill",
@@ -296,7 +297,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-448000",
+      "id": "clip-9",
       "startMs": 448000,
       "endMs": 457000,
       "type": "nearMiss",
@@ -305,7 +306,7 @@ Output:
       "status": "pending"
     },
     {
-      "id": "clip-468000",
+      "id": "clip-10",
       "startMs": 468000,
       "endMs": 478000,
       "type": "nearMiss",
@@ -338,7 +339,6 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 
 ## Next steps
 
-- Give every clip a unique id. Two clips that both clamp to 0:00 are both `clip-0` today.
 - Return `{ selected, candidates }` from `selectClips` instead of a `[selected, candidates]` tuple, so callers don't depend on position.
-- Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved.
+- Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved. Review only changes the status of clips in the built reel, so their ids stay put. A rebuild from new input, such as re-detected moments or new cap and padding settings, is a new reel whose ids may differ, and its review starts over.
 - Pass the cap and padding in as settings instead of hard-coding them.
