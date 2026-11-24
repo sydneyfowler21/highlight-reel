@@ -29,17 +29,19 @@ npm run format:check
 
 The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
 
+`buildReel` is the entry point, and it checks the recording before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect a recording that has already been checked.
+
 Input:
 
 ```json
 {
   "recording": {
-    "id": 1,
+    "id": "rec-1",
     "durationMs": 600000
   },
   "rawMoments": [
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 58000,
       "endMs": 62000,
@@ -47,7 +49,7 @@ Input:
       "confidence": 0.8
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 60000,
       "endMs": 65000,
@@ -55,7 +57,7 @@ Input:
       "confidence": 0.95
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 508000,
       "endMs": 512000,
@@ -63,7 +65,7 @@ Input:
       "confidence": 0.9
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 596000,
       "endMs": 599000,
@@ -71,7 +73,7 @@ Input:
       "confidence": 0.88
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "save",
       "startMs": 1000,
       "endMs": 4000,
@@ -79,7 +81,7 @@ Input:
       "confidence": 0.8
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "save",
       "startMs": 120000,
       "endMs": 124000,
@@ -87,7 +89,7 @@ Input:
       "confidence": 0.92
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "save",
       "startMs": 126000,
       "endMs": 130000,
@@ -95,7 +97,7 @@ Input:
       "confidence": 0.4
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "bigPlay",
       "startMs": 200000,
       "endMs": 206000,
@@ -103,7 +105,7 @@ Input:
       "confidence": 0.85
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "bigPlay",
       "startMs": 250000,
       "endMs": 255000,
@@ -111,7 +113,7 @@ Input:
       "confidence": 0.7
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "bigPlay",
       "startMs": 300000,
       "endMs": 306000,
@@ -119,7 +121,7 @@ Input:
       "confidence": 0.6
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "skill",
       "startMs": 80000,
       "endMs": 81000,
@@ -127,7 +129,7 @@ Input:
       "confidence": 0.8
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "skill",
       "startMs": 350000,
       "endMs": 351000,
@@ -135,7 +137,7 @@ Input:
       "confidence": 0.65
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "nearMiss",
       "startMs": 450000,
       "endMs": 454000,
@@ -143,7 +145,7 @@ Input:
       "confidence": 0.88
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "nearMiss",
       "startMs": 470000,
       "endMs": 475000,
@@ -151,7 +153,7 @@ Input:
       "confidence": 0.6
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 200000,
       "endMs": 100000,
@@ -159,7 +161,7 @@ Input:
       "confidence": 0.9
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "save",
       "startMs": 140000,
       "endMs": 145000,
@@ -167,7 +169,7 @@ Input:
       "confidence": 1.4
     },
     {
-      "recordingId": 2,
+      "recordingId": "rec-2",
       "type": "goal",
       "startMs": 60000,
       "endMs": 65000,
@@ -175,7 +177,7 @@ Input:
       "confidence": 0.99
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "foul",
       "startMs": 90000,
       "endMs": 95000,
@@ -336,7 +338,6 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 
 ## Next steps
 
-- Validate `recording.id`. A `NaN` id drops every moment, and an `undefined` id keeps moments that have no `recordingId`.
 - Give every clip a unique id. Two clips that both clamp to 0:00 are both `clip-0` today.
 - Return `{ selected, candidates }` from `selectClips` instead of a `[selected, candidates]` tuple, so callers don't depend on position.
 - Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved.

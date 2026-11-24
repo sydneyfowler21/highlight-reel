@@ -1,5 +1,5 @@
 export type Recording = {
-  id: number;
+  id: string;
   durationMs: number;
 };
 
@@ -12,7 +12,7 @@ export enum PlayType {
 }
 
 export type RawMoment = {
-  recordingId: number;
+  recordingId: string;
   startMs: number;
   endMs: number;
   type: PlayType;

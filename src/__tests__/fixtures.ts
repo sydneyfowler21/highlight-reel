@@ -1,7 +1,7 @@
 import { clip, rawMoment } from './builders';
 import { PlayType, type Recording } from '../types';
 
-export const recording10min: Recording = { id: 1, durationMs: 600_000 };
+export const recording10min: Recording = { id: 'rec-1', durationMs: 600_000 };
 
 export const validSave = rawMoment(PlayType.Save, 120_000, 124_000, {
   players: ['p5'],
