@@ -16,7 +16,7 @@ export function rawMoment(
   extra: Partial<RawMoment> = {},
 ): RawMoment {
   return {
-    recordingId: 1,
+    recordingId: 'rec-1',
     type,
     startMs,
     endMs,

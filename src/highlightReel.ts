@@ -56,11 +56,6 @@ function isKnownPlayType(type: unknown): type is PlayType {
 }
 
 function assertValidRecording(recording: Recording): void {
-  if (!Number.isSafeInteger(recording.id)) {
-    throw new RangeError(
-      `Expected recording.id to be a safe integer, got ${recording.id}`,
-    );
-  }
   if (!Number.isFinite(recording.durationMs) || recording.durationMs <= 0) {
     throw new RangeError(
       `Expected recording.durationMs to be a finite number above 0, got ${recording.durationMs}`,

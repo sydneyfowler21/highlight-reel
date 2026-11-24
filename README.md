@@ -6,7 +6,7 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 
 ## Rules
 
-- Throw a `RangeError` when the recording's id is not a safe integer or its duration is not a finite number above 0. A NaN id would drop every moment, an id above 2^53 could match a different recording's id, a NaN duration would drop every moment, and an infinite one would let clip ends run forever.
+- Throw a `RangeError` when the recording's duration is not a finite number above 0. A NaN duration would drop every moment, and an infinite one would let clip ends run forever.
 - Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
 - Two raw moments are the same play when they share a recording, have the same play type, and their time ranges overlap or are within one second of each other. Merge those moments into one: earliest start, latest end, highest confidence, and the combined player list.
 - Add two seconds of padding before each merged moment and three seconds after it, then clamp the result so a clip never starts before 0:00 and never ends after the recording does.
@@ -34,12 +34,12 @@ Input:
 ```json
 {
   "recording": {
-    "id": 1,
+    "id": "rec-1",
     "durationMs": 600000
   },
   "rawMoments": [
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 58000,
       "endMs": 62000,
@@ -47,7 +47,7 @@ Input:
       "confidence": 0.8
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 60000,
       "endMs": 65000,
@@ -55,7 +55,7 @@ Input:
       "confidence": 0.95
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 508000,
       "endMs": 512000,
@@ -63,7 +63,7 @@ Input:
       "confidence": 0.9
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 596000,
       "endMs": 599000,
@@ -71,7 +71,7 @@ Input:
       "confidence": 0.88
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "save",
       "startMs": 1000,
       "endMs": 4000,
@@ -79,7 +79,7 @@ Input:
       "confidence": 0.8
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "save",
       "startMs": 120000,
       "endMs": 124000,
@@ -87,7 +87,7 @@ Input:
       "confidence": 0.92
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "save",
       "startMs": 126000,
       "endMs": 130000,
@@ -95,7 +95,7 @@ Input:
       "confidence": 0.4
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "bigPlay",
       "startMs": 200000,
       "endMs": 206000,
@@ -103,7 +103,7 @@ Input:
       "confidence": 0.85
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "bigPlay",
       "startMs": 250000,
       "endMs": 255000,
@@ -111,7 +111,7 @@ Input:
       "confidence": 0.7
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "bigPlay",
       "startMs": 300000,
       "endMs": 306000,
@@ -119,7 +119,7 @@ Input:
       "confidence": 0.6
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "skill",
       "startMs": 80000,
       "endMs": 81000,
@@ -127,7 +127,7 @@ Input:
       "confidence": 0.8
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "skill",
       "startMs": 350000,
       "endMs": 351000,
@@ -135,7 +135,7 @@ Input:
       "confidence": 0.65
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "nearMiss",
       "startMs": 450000,
       "endMs": 454000,
@@ -143,7 +143,7 @@ Input:
       "confidence": 0.88
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "nearMiss",
       "startMs": 470000,
       "endMs": 475000,
@@ -151,7 +151,7 @@ Input:
       "confidence": 0.6
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "goal",
       "startMs": 200000,
       "endMs": 100000,
@@ -159,7 +159,7 @@ Input:
       "confidence": 0.9
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "save",
       "startMs": 140000,
       "endMs": 145000,
@@ -167,7 +167,7 @@ Input:
       "confidence": 1.4
     },
     {
-      "recordingId": 2,
+      "recordingId": "rec-2",
       "type": "goal",
       "startMs": 60000,
       "endMs": 65000,
@@ -175,7 +175,7 @@ Input:
       "confidence": 0.99
     },
     {
-      "recordingId": 1,
+      "recordingId": "rec-1",
       "type": "foul",
       "startMs": 90000,
       "endMs": 95000,

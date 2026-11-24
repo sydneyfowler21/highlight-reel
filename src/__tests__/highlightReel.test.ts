@@ -19,14 +19,8 @@ function withoutField(field: keyof RawMoment): Partial<RawMoment> {
 
 const invalidDurations = [[NaN], [Infinity], [-Infinity], [-1], [0]];
 
-const invalidIds = [[2 ** 53], [NaN], [Infinity], [1.5]];
-
 function recordingLasting(durationMs: number): Recording {
   return { ...fixtures.recording10min, durationMs };
-}
-
-function recordingWithId(id: number): Recording {
-  return { ...fixtures.recording10min, id };
 }
 
 function ignoringPlayerOrder<T extends { players: string[] }>(items: T[]): T[] {
@@ -102,7 +96,7 @@ describe('filterRawMoments', () => {
   it('A moment that belongs to a different recording is skipped', () => {
     expect(
       filterRawMoments(fixtures.recording10min, [
-        rawMoment(PlayType.Goal, 100_000, 200_000, { recordingId: 2 }),
+        rawMoment(PlayType.Goal, 100_000, 200_000, { recordingId: 'rec-2' }),
       ]),
     ).toEqual([]);
   });
@@ -178,7 +172,7 @@ describe('filterRawMoments', () => {
         rawMoment(PlayType.Goal, 200_000, 100_000, { confidence: 0.9 }),
         rawMoment(PlayType.Save, 140_000, 145_000, { confidence: 1.4 }),
         rawMoment(PlayType.Goal, 60_000, 65_000, {
-          recordingId: 2,
+          recordingId: 'rec-2',
           confidence: 0.99,
         }),
         { ...rawMoment(PlayType.Goal, 90_000, 95_000), type: 'foul' },
@@ -190,6 +184,14 @@ describe('filterRawMoments', () => {
   it('A 1ms recording is valid and keeps a moment that fills it', () => {
     const moment = rawMoment(PlayType.Goal, 0, 1);
     expect(filterRawMoments(recordingLasting(1), [moment])).toEqual([moment]);
+  });
+
+  it('A moment whose recordingId is a number is skipped', () => {
+    expect(
+      filterRawMoments(fixtures.recording10min, [
+        { ...rawMoment(PlayType.Goal, 100_000, 200_000), recordingId: 1 },
+      ]),
+    ).toEqual([]);
   });
 
   it('A moment with no recordingId is skipped', () => {
@@ -856,27 +858,6 @@ describe('buildReel', () => {
     expect(
       buildReel(recordingLasting(1), [rawMoment(PlayType.Goal, 0, 1)]).clips,
     ).toEqual([clip('clip-0', PlayType.Goal, 0, 1)]);
-  });
-
-  it('A recording with an id of 0 is valid and keeps its moments', () => {
-    expect(
-      buildReel(recordingWithId(0), [
-        rawMoment(PlayType.Goal, 100_000, 104_000, { recordingId: 0 }),
-      ]).clips,
-    ).toEqual([clip('clip-98000', PlayType.Goal, 98_000, 107_000)]);
-  });
-
-  it.each(invalidIds)(
-    'A recording with an id of %p throws even with no moments',
-    (id) => {
-      expect(() => buildReel(recordingWithId(id), [])).toThrow(RangeError);
-    },
-  );
-
-  it('The error names the invalid id', () => {
-    expect(() => buildReel(recordingWithId(1.5), [])).toThrow(
-      'Expected recording.id to be a safe integer, got 1.5',
-    );
   });
 
   it('The error names the invalid durationMs', () => {
