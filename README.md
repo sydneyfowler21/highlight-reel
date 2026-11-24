@@ -18,13 +18,15 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 npm install
 npm test
 npm run typecheck
+npm run lint
+npm run format:check
 ```
 
-`npm test` runs the included happy-path fixture and prints how many checks passed or failed. `npm run typecheck` type-checks the project with TypeScript in strict mode.
+`npm test` runs the Jest happy-path test in `src/highlightReel.test.ts`. `npm run typecheck` type-checks the project, including that test, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
 
 ## Usage
 
-The included fixture is a 10-minute recording and the raw moments below (`seedRecording` and `seedRawMoments` in `src/highlightReel.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
+The included fixture is a 10-minute recording and the raw moments below (`seedRecording` and `seedRawMoments` in `src/highlightReel.test.ts`). Passing that input to `buildReel` produces the reel that follows. `npm test` checks this same run.
 
 Input:
 
@@ -35,24 +37,150 @@ Input:
     "durationMs": 600000
   },
   "rawMoments": [
-    { "recordingId": 1, "type": "goal", "startMs": 58000, "endMs": 62000, "players": ["p1", "p3"], "confidence": 0.8 },
-    { "recordingId": 1, "type": "goal", "startMs": 60000, "endMs": 65000, "players": ["p1", "p2"], "confidence": 0.95 },
-    { "recordingId": 1, "type": "goal", "startMs": 508000, "endMs": 512000, "players": ["p3"], "confidence": 0.9 },
-    { "recordingId": 1, "type": "goal", "startMs": 596000, "endMs": 599000, "players": ["p1"], "confidence": 0.88 },
-    { "recordingId": 1, "type": "save", "startMs": 1000, "endMs": 4000, "players": ["p4"], "confidence": 0.8 },
-    { "recordingId": 1, "type": "save", "startMs": 120000, "endMs": 124000, "players": ["p5"], "confidence": 0.92 },
-    { "recordingId": 1, "type": "save", "startMs": 126000, "endMs": 130000, "players": ["p6"], "confidence": 0.4 },
-    { "recordingId": 1, "type": "bigPlay", "startMs": 200000, "endMs": 206000, "players": ["p7"], "confidence": 0.85 },
-    { "recordingId": 1, "type": "bigPlay", "startMs": 250000, "endMs": 255000, "players": ["p8"], "confidence": 0.7 },
-    { "recordingId": 1, "type": "bigPlay", "startMs": 300000, "endMs": 306000, "players": ["p9"], "confidence": 0.6 },
-    { "recordingId": 1, "type": "skill", "startMs": 80000, "endMs": 81000, "players": ["p10"], "confidence": 0.8 },
-    { "recordingId": 1, "type": "skill", "startMs": 350000, "endMs": 351000, "players": ["p11"], "confidence": 0.65 },
-    { "recordingId": 1, "type": "nearMiss", "startMs": 450000, "endMs": 454000, "players": ["p12"], "confidence": 0.88 },
-    { "recordingId": 1, "type": "nearMiss", "startMs": 470000, "endMs": 475000, "players": ["p13"], "confidence": 0.6 },
-    { "recordingId": 1, "type": "goal", "startMs": 200000, "endMs": 100000, "players": ["p1"], "confidence": 0.9 },
-    { "recordingId": 1, "type": "save", "startMs": 140000, "endMs": 145000, "players": ["p5"], "confidence": 1.4 },
-    { "recordingId": 2, "type": "goal", "startMs": 60000, "endMs": 65000, "players": ["p1"], "confidence": 0.99 },
-    { "recordingId": 1, "type": "foul", "startMs": 90000, "endMs": 95000, "players": ["p1"], "confidence": 0.9 }
+    {
+      "recordingId": 1,
+      "type": "goal",
+      "startMs": 58000,
+      "endMs": 62000,
+      "players": ["p1", "p3"],
+      "confidence": 0.8
+    },
+    {
+      "recordingId": 1,
+      "type": "goal",
+      "startMs": 60000,
+      "endMs": 65000,
+      "players": ["p1", "p2"],
+      "confidence": 0.95
+    },
+    {
+      "recordingId": 1,
+      "type": "goal",
+      "startMs": 508000,
+      "endMs": 512000,
+      "players": ["p3"],
+      "confidence": 0.9
+    },
+    {
+      "recordingId": 1,
+      "type": "goal",
+      "startMs": 596000,
+      "endMs": 599000,
+      "players": ["p1"],
+      "confidence": 0.88
+    },
+    {
+      "recordingId": 1,
+      "type": "save",
+      "startMs": 1000,
+      "endMs": 4000,
+      "players": ["p4"],
+      "confidence": 0.8
+    },
+    {
+      "recordingId": 1,
+      "type": "save",
+      "startMs": 120000,
+      "endMs": 124000,
+      "players": ["p5"],
+      "confidence": 0.92
+    },
+    {
+      "recordingId": 1,
+      "type": "save",
+      "startMs": 126000,
+      "endMs": 130000,
+      "players": ["p6"],
+      "confidence": 0.4
+    },
+    {
+      "recordingId": 1,
+      "type": "bigPlay",
+      "startMs": 200000,
+      "endMs": 206000,
+      "players": ["p7"],
+      "confidence": 0.85
+    },
+    {
+      "recordingId": 1,
+      "type": "bigPlay",
+      "startMs": 250000,
+      "endMs": 255000,
+      "players": ["p8"],
+      "confidence": 0.7
+    },
+    {
+      "recordingId": 1,
+      "type": "bigPlay",
+      "startMs": 300000,
+      "endMs": 306000,
+      "players": ["p9"],
+      "confidence": 0.6
+    },
+    {
+      "recordingId": 1,
+      "type": "skill",
+      "startMs": 80000,
+      "endMs": 81000,
+      "players": ["p10"],
+      "confidence": 0.8
+    },
+    {
+      "recordingId": 1,
+      "type": "skill",
+      "startMs": 350000,
+      "endMs": 351000,
+      "players": ["p11"],
+      "confidence": 0.65
+    },
+    {
+      "recordingId": 1,
+      "type": "nearMiss",
+      "startMs": 450000,
+      "endMs": 454000,
+      "players": ["p12"],
+      "confidence": 0.88
+    },
+    {
+      "recordingId": 1,
+      "type": "nearMiss",
+      "startMs": 470000,
+      "endMs": 475000,
+      "players": ["p13"],
+      "confidence": 0.6
+    },
+    {
+      "recordingId": 1,
+      "type": "goal",
+      "startMs": 200000,
+      "endMs": 100000,
+      "players": ["p1"],
+      "confidence": 0.9
+    },
+    {
+      "recordingId": 1,
+      "type": "save",
+      "startMs": 140000,
+      "endMs": 145000,
+      "players": ["p5"],
+      "confidence": 1.4
+    },
+    {
+      "recordingId": 2,
+      "type": "goal",
+      "startMs": 60000,
+      "endMs": 65000,
+      "players": ["p1"],
+      "confidence": 0.99
+    },
+    {
+      "recordingId": 1,
+      "type": "foul",
+      "startMs": 90000,
+      "endMs": 95000,
+      "players": ["p1"],
+      "confidence": 0.9
+    }
   ]
 }
 ```
