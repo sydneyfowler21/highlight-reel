@@ -34,28 +34,28 @@ export function filterRawMoments(
 }
 
 export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
-  if (rawMoments.length === 0) return [];
-
   const sortedMoments = [...rawMoments].sort((a, b) => a.startMs - b.startMs);
-  const mergedMoments = [sortedMoments[0]];
+  const mergedMoments: RawMoment[] = [];
+  const latestMomentByType = new Map<PlayType, RawMoment>();
 
-  for (let i = 1; i < sortedMoments.length; i++) {
-    const moment = sortedMoments[i];
-    const lastIndex = mergedMoments.length - 1;
-    const last = mergedMoments[lastIndex];
-    const sameType = moment.type === last.type;
-    const withinMergeGap = moment.startMs - consts.MERGE_GAP_MS <= last.endMs;
-    if (sameType && withinMergeGap) {
-      mergedMoments[lastIndex] = {
-        recordingId: last.recordingId,
-        startMs: last.startMs,
-        endMs: Math.max(last.endMs, moment.endMs),
-        type: last.type,
-        confidence: Math.max(last.confidence, moment.confidence),
-        players: [...new Set([...moment.players, ...last.players])],
-      };
+  for (const moment of sortedMoments) {
+    const momentToCompare = latestMomentByType.get(moment.type);
+    if (
+      momentToCompare &&
+      moment.startMs - consts.MERGE_GAP_MS <= momentToCompare.endMs
+    ) {
+      momentToCompare.endMs = Math.max(momentToCompare.endMs, moment.endMs);
+      momentToCompare.confidence = Math.max(
+        momentToCompare.confidence,
+        moment.confidence,
+      );
+      momentToCompare.players = [
+        ...new Set([...momentToCompare.players, ...moment.players]),
+      ];
     } else {
-      mergedMoments.push(moment);
+      const merged = { ...moment };
+      latestMomentByType.set(moment.type, merged);
+      mergedMoments.push(merged);
     }
   }
 
