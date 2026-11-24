@@ -31,24 +31,24 @@ export const mergeGoalA = rawMoment(PlayType.Goal, 10_000, 20_000, {
   confidence: 0.8,
 });
 
-// Same type, gap 1001ms after mergeGoalA.
-export const gap1001B = rawMoment(PlayType.Goal, 21_001, 30_000, {
+// Same type, touching mergeGoalA (gap 0).
+export const touchB = rawMoment(PlayType.Goal, 20_000, 30_000, {
   players: ['p2'],
 });
-
-// --- Saved for the 1s merge-gap and interleaved-merge fixes ---------------
-// Not used by any test yet. Each pairs with mergeGoalA, and their tests
-// will be added with those fixes.
 
 // Same type, gap exactly 1000ms after mergeGoalA.
 export const gap1sB = rawMoment(PlayType.Goal, 21_000, 30_000, {
   players: ['p2'],
 });
 
-// Same type, touching mergeGoalA (gap 0).
-export const touchB = rawMoment(PlayType.Goal, 20_000, 30_000, {
+// Same type, gap 1001ms after mergeGoalA.
+export const gap1001B = rawMoment(PlayType.Goal, 21_001, 30_000, {
   players: ['p2'],
 });
+
+// --- Saved for the interleaved-merge fix ----------------------------------
+// Not used by any test yet. Each pairs with mergeGoalA, and their tests
+// will be added with that fix.
 
 // Interleaved: a save between mergeGoalA and an overlapping goal.
 export const interleaveSave = rawMoment(PlayType.Save, 15_000, 25_000, {

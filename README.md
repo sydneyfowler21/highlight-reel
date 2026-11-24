@@ -320,7 +320,7 @@ Output:
 The reel is built as a pipeline of small, pure functions:
 
 1. **Filter** drops invalid or out-of-scope raw moments.
-2. **Merge** combines overlapping detections of the same play type into one moment.
+2. **Merge** combines detections of the same play type that overlap or are within one second of each other into one moment.
 3. **Pad/clamp** adds watchable time before and after each merged moment, clamps the clip to the recording, and leaves it pending review.
 4. **Select under the cap** fills the 60-second cap by taking goals first, then the other play types in priority order, skipping overlaps and clips that do not fit.
 5. **Sort** puts the selected clips in chronological order.
@@ -331,9 +331,8 @@ A newly built reel always reports `shareable` as false, because every clip still
 
 ## Next steps
 
-- Honor the one-second merge-gap rule, so moments of the same type that almost touch are treated as the same play.
 - Merge correctly when other play types interleave between detections of the same play.
-- Add the one-second gap and interleaved-merge tests with those fixes. The fixtures are already in `src/__tests__/fixtures.ts`.
+- Add the interleaved-merge tests with that fix. The fixtures are already in `src/__tests__/fixtures.ts`.
 - Skip moments that are missing `confidence` or `players`, or that have `NaN` times or confidence. A moment with no `players` currently crashes the merge.
 - Give every clip a unique id. Two clips that both clamp to 0:00 are both `clip-0` today.
 - Return `{ selected, candidates }` from `selectClips` instead of a `[selected, candidates]` tuple, so callers don't depend on position.
