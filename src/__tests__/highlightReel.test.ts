@@ -983,32 +983,65 @@ describe('buildReel', () => {
     });
   });
 
-  it.each([[NaN], [Infinity], [-1], [0]])('A capMs of %p throws', (capMs) => {
-    expect(() =>
-      buildReel(fixtures.recording10min, [fixtures.validSave], {
-        ...DEFAULT_REEL_SETTINGS,
-        capMs,
-      }),
-    ).toThrow(
-      `Expected settings.capMs to be a finite number above 0, got ${capMs}`,
-    );
+  it('Fills past 60s when the cap is above the default', () => {
+    expect(
+      buildReel(
+        fixtures.recording10min,
+        [
+          rawMoment(PlayType.Goal, 100_000, 115_000),
+          rawMoment(PlayType.Goal, 200_000, 215_000),
+          rawMoment(PlayType.Goal, 300_000, 315_000),
+          rawMoment(PlayType.Goal, 400_000, 415_000),
+        ],
+        { ...DEFAULT_REEL_SETTINGS, capMs: 90_000 },
+      ),
+    ).toEqual({
+      shareable: false,
+      clips: [
+        clip('clip-0', PlayType.Goal, 98_000, 118_000),
+        clip('clip-1', PlayType.Goal, 198_000, 218_000),
+        clip('clip-2', PlayType.Goal, 298_000, 318_000),
+        clip('clip-3', PlayType.Goal, 398_000, 418_000),
+      ],
+      candidates: [],
+      capMs: 90_000,
+    });
   });
+
+  it.each([[NaN], [Infinity], [-1], [0]])(
+    'A capMs of %p throws a RangeError even with no moments',
+    (capMs) => {
+      const build = () =>
+        buildReel(fixtures.recording10min, [], {
+          ...DEFAULT_REEL_SETTINGS,
+          capMs,
+        });
+      expect(build).toThrow(RangeError);
+      expect(build).toThrow(
+        `Expected settings.capMs to be a finite number above 0, got ${capMs}`,
+      );
+    },
+  );
 
   it.each([
     ['prePadMs', NaN],
     ['prePadMs', -1],
     ['postPadMs', Infinity],
     ['postPadMs', -1],
-  ] as const)('A %s of %p throws', (field, value) => {
-    expect(() =>
-      buildReel(fixtures.recording10min, [fixtures.validSave], {
-        ...DEFAULT_REEL_SETTINGS,
-        [field]: value,
-      }),
-    ).toThrow(
-      `Expected settings.${field} to be a finite number at or above 0, got ${value}`,
-    );
-  });
+  ] as const)(
+    'A %s of %p throws a RangeError even with no moments',
+    (field, value) => {
+      const build = () =>
+        buildReel(fixtures.recording10min, [], {
+          ...DEFAULT_REEL_SETTINGS,
+          [field]: value,
+        });
+      expect(build).toThrow(RangeError);
+      expect(build).toThrow(
+        `Expected settings.${field} to be a finite number at or above 0, got ${value}`,
+      );
+    },
+  );
 
   it('Zero padding is valid and leaves the moment unpadded', () => {
     expect(
