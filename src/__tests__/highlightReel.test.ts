@@ -6,6 +6,7 @@ import {
   mergeRawMoments,
   selectClips,
 } from '../highlightReel';
+import { DEFAULT_REEL_SETTINGS } from '../consts';
 import { clip, rawMoment } from './builders';
 import * as fixtures from './fixtures';
 import * as seedGame from './seedGame';
@@ -557,12 +558,18 @@ describe('mergeRawMoments', () => {
 
 describe('convertToClips', () => {
   it('An empty input list yields an empty result', () => {
-    expect(convertToClips(fixtures.recording10min, [])).toEqual([]);
+    expect(
+      convertToClips(fixtures.recording10min, [], DEFAULT_REEL_SETTINGS),
+    ).toEqual([]);
   });
 
   it('Pads 2s before and 3s after a mid-recording moment', () => {
     expect(
-      convertToClips(fixtures.recording10min, [fixtures.validSave]),
+      convertToClips(
+        fixtures.recording10min,
+        [fixtures.validSave],
+        DEFAULT_REEL_SETTINGS,
+      ),
     ).toEqual([
       clip('clip-0', PlayType.Save, 118_000, 127_000, {
         players: ['p5'],
@@ -573,12 +580,16 @@ describe('convertToClips', () => {
 
   it('Padding before a moment near 0:00 clamps to 0:00', () => {
     expect(
-      convertToClips(fixtures.recording10min, [
-        rawMoment(PlayType.Save, 1_000, 4_000, {
-          players: ['p4'],
-          confidence: 0.8,
-        }),
-      ]),
+      convertToClips(
+        fixtures.recording10min,
+        [
+          rawMoment(PlayType.Save, 1_000, 4_000, {
+            players: ['p4'],
+            confidence: 0.8,
+          }),
+        ],
+        DEFAULT_REEL_SETTINGS,
+      ),
     ).toEqual([
       clip('clip-0', PlayType.Save, 0, 7_000, {
         players: ['p4'],
@@ -589,17 +600,21 @@ describe('convertToClips', () => {
 
   it('A moment that starts at 0:00 stays at 0:00', () => {
     expect(
-      convertToClips(fixtures.recording10min, [
-        rawMoment(PlayType.Goal, 0, 3_000),
-      ]),
+      convertToClips(
+        fixtures.recording10min,
+        [rawMoment(PlayType.Goal, 0, 3_000)],
+        DEFAULT_REEL_SETTINGS,
+      ),
     ).toEqual([clip('clip-0', PlayType.Goal, 0, 6_000)]);
   });
 
   it('Padding after a moment near the end clamps to the recording end', () => {
     expect(
-      convertToClips(fixtures.recording10min, [
-        rawMoment(PlayType.Goal, 596_000, 599_000, { confidence: 0.88 }),
-      ]),
+      convertToClips(
+        fixtures.recording10min,
+        [rawMoment(PlayType.Goal, 596_000, 599_000, { confidence: 0.88 })],
+        DEFAULT_REEL_SETTINGS,
+      ),
     ).toEqual([
       clip('clip-0', PlayType.Goal, 594_000, 600_000, {
         confidence: 0.88,
@@ -609,9 +624,11 @@ describe('convertToClips', () => {
 
   it('A moment that ends at the recording end stays there', () => {
     expect(
-      convertToClips(fixtures.recording10min, [
-        rawMoment(PlayType.Goal, 595_000, 600_000, { confidence: 0.88 }),
-      ]),
+      convertToClips(
+        fixtures.recording10min,
+        [rawMoment(PlayType.Goal, 595_000, 600_000, { confidence: 0.88 })],
+        DEFAULT_REEL_SETTINGS,
+      ),
     ).toEqual([
       clip('clip-0', PlayType.Goal, 593_000, 600_000, {
         confidence: 0.88,
@@ -621,40 +638,71 @@ describe('convertToClips', () => {
 
   it('Each clip gets its own copy of the players list', () => {
     const moment = rawMoment(PlayType.Goal, 100_000, 104_000);
-    const [result] = convertToClips(fixtures.recording10min, [moment]);
+    const [result] = convertToClips(
+      fixtures.recording10min,
+      [moment],
+      DEFAULT_REEL_SETTINGS,
+    );
     expect(result.players).toEqual(moment.players);
     expect(result.players).not.toBe(moment.players);
   });
 
   it('Padding after a moment in a 1ms recording clamps to 1ms', () => {
     expect(
-      convertToClips(recordingLasting(1), [rawMoment(PlayType.Goal, 0, 1)]),
+      convertToClips(
+        recordingLasting(1),
+        [rawMoment(PlayType.Goal, 0, 1)],
+        DEFAULT_REEL_SETTINGS,
+      ),
     ).toEqual([clip('clip-0', PlayType.Goal, 0, 1)]);
   });
 
   it('Ids number the clips from 0 in input order, even when starts clamp to the same 0:00', () => {
     expect(
-      convertToClips(fixtures.recording10min, [
-        rawMoment(PlayType.Save, 1_000, 4_000),
-        rawMoment(PlayType.Goal, 500, 3_000),
-        rawMoment(PlayType.Skill, 300_000, 304_000),
-      ]).map((c) => [c.startMs, c.id]),
+      convertToClips(
+        fixtures.recording10min,
+        [
+          rawMoment(PlayType.Save, 1_000, 4_000),
+          rawMoment(PlayType.Goal, 500, 3_000),
+          rawMoment(PlayType.Skill, 300_000, 304_000),
+        ],
+        DEFAULT_REEL_SETTINGS,
+      ).map((c) => [c.startMs, c.id]),
     ).toEqual([
       [0, 'clip-0'],
       [0, 'clip-1'],
       [298_000, 'clip-2'],
     ]);
   });
+  it('Pads by the given settings instead of the defaults', () => {
+    expect(
+      convertToClips(fixtures.recording10min, [fixtures.validSave], {
+        prePadMs: 5_000,
+        postPadMs: 0,
+      }),
+    ).toEqual([
+      clip('clip-0', PlayType.Save, 115_000, 124_000, {
+        players: ['p5'],
+        confidence: 0.92,
+      }),
+    ]);
+  });
 });
 
 describe('selectClips', () => {
   it('An empty input list yields no selected clips and no candidates', () => {
-    expect(selectClips([])).toEqual({ selected: [], candidates: [] });
+    expect(selectClips([], DEFAULT_REEL_SETTINGS.capMs)).toEqual({
+      selected: [],
+      candidates: [],
+    });
   });
 
   it('Clips that sum to exactly the 60s cap are all included', () => {
     expect(
-      selectClips([fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s]),
+      selectClips(
+        [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
     ).toEqual({
       selected: [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
       candidates: [],
@@ -663,12 +711,15 @@ describe('selectClips', () => {
 
   it('A clip just over the remaining time is skipped for a later one that fits', () => {
     expect(
-      selectClips([
-        fixtures.goal20sA,
-        fixtures.goal20sB,
-        fixtures.saveJustOver,
-        fixtures.skill10s,
-      ]),
+      selectClips(
+        [
+          fixtures.goal20sA,
+          fixtures.goal20sB,
+          fixtures.saveJustOver,
+          fixtures.skill10s,
+        ],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
     ).toEqual({
       selected: [fixtures.goal20sA, fixtures.goal20sB, fixtures.skill10s],
       candidates: [fixtures.saveJustOver],
@@ -676,12 +727,15 @@ describe('selectClips', () => {
   });
 
   it('A clip longer than the cap is skipped and later clips can still fill the reel', () => {
-    expect(selectClips([fixtures.overCapClip, fixtures.underCapSkill])).toEqual(
-      {
-        selected: [fixtures.underCapSkill],
-        candidates: [fixtures.overCapClip],
-      },
-    );
+    expect(
+      selectClips(
+        [fixtures.overCapClip, fixtures.underCapSkill],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
+    ).toEqual({
+      selected: [fixtures.underCapSkill],
+      candidates: [fixtures.overCapClip],
+    });
   });
 
   it('Play-type priority is goal, save, big play, skill, then near miss', () => {
@@ -701,7 +755,9 @@ describe('selectClips', () => {
       confidence: 0.5,
     });
 
-    expect(selectClips([nearMiss, skill, goal, save])).toEqual({
+    expect(
+      selectClips([nearMiss, skill, goal, save], DEFAULT_REEL_SETTINGS.capMs),
+    ).toEqual({
       selected: [goal, save],
       candidates: [skill, nearMiss],
     });
@@ -713,7 +769,7 @@ describe('selectClips', () => {
       players: ['p2'],
     });
 
-    expect(selectClips([low, high])).toEqual({
+    expect(selectClips([low, high], DEFAULT_REEL_SETTINGS.capMs)).toEqual({
       selected: [high],
       candidates: [low],
     });
@@ -721,7 +777,10 @@ describe('selectClips', () => {
 
   it('Ties in play type and confidence keep input order', () => {
     expect(
-      selectClips([fixtures.bigPlay40sSecond, fixtures.bigPlay40sFirst]),
+      selectClips(
+        [fixtures.bigPlay40sSecond, fixtures.bigPlay40sFirst],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
     ).toEqual({
       selected: [fixtures.bigPlay40sSecond],
       candidates: [fixtures.bigPlay40sFirst],
@@ -730,7 +789,12 @@ describe('selectClips', () => {
 
   it('Clips that touch end to start do not overlap and are both selected', () => {
     expect(fixtures.goal20sA.endMs).toBe(fixtures.laterSkill.startMs);
-    expect(selectClips([fixtures.goal20sA, fixtures.laterSkill])).toEqual({
+    expect(
+      selectClips(
+        [fixtures.goal20sA, fixtures.laterSkill],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
+    ).toEqual({
       selected: [fixtures.goal20sA, fixtures.laterSkill],
       candidates: [],
     });
@@ -738,14 +802,25 @@ describe('selectClips', () => {
 
   it('A clip that overlaps an already selected clip is skipped', () => {
     expect(
-      selectClips([
-        fixtures.goal20sA,
-        fixtures.overlappingSave,
-        fixtures.laterSkill,
-      ]),
+      selectClips(
+        [fixtures.goal20sA, fixtures.overlappingSave, fixtures.laterSkill],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
     ).toEqual({
       selected: [fixtures.goal20sA, fixtures.laterSkill],
       candidates: [fixtures.overlappingSave],
+    });
+  });
+
+  it('Fills up to the given cap instead of the default', () => {
+    expect(
+      selectClips(
+        [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
+        40_000,
+      ),
+    ).toEqual({
+      selected: [fixtures.goal20sA, fixtures.goal20sB],
+      candidates: [fixtures.save20s],
     });
   });
 });
@@ -886,5 +961,100 @@ describe('buildReel', () => {
       candidates: [],
       capMs: 60_000,
     });
+  });
+
+  it('Builds with the given cap and padding and reports that cap', () => {
+    expect(
+      buildReel(
+        fixtures.recording10min,
+        [
+          rawMoment(PlayType.Goal, 100_000, 120_000),
+          rawMoment(PlayType.Goal, 300_000, 320_000, { confidence: 0.8 }),
+        ],
+        { capMs: 30_000, prePadMs: 1_000, postPadMs: 0 },
+      ),
+    ).toEqual({
+      shareable: false,
+      clips: [clip('clip-0', PlayType.Goal, 99_000, 120_000)],
+      candidates: [
+        clip('clip-1', PlayType.Goal, 299_000, 320_000, { confidence: 0.8 }),
+      ],
+      capMs: 30_000,
+    });
+  });
+
+  it('Fills past 60s when the cap is above the default', () => {
+    expect(
+      buildReel(
+        fixtures.recording10min,
+        [
+          rawMoment(PlayType.Goal, 100_000, 115_000),
+          rawMoment(PlayType.Goal, 200_000, 215_000),
+          rawMoment(PlayType.Goal, 300_000, 315_000),
+          rawMoment(PlayType.Goal, 400_000, 415_000),
+        ],
+        { ...DEFAULT_REEL_SETTINGS, capMs: 90_000 },
+      ),
+    ).toEqual({
+      shareable: false,
+      clips: [
+        clip('clip-0', PlayType.Goal, 98_000, 118_000),
+        clip('clip-1', PlayType.Goal, 198_000, 218_000),
+        clip('clip-2', PlayType.Goal, 298_000, 318_000),
+        clip('clip-3', PlayType.Goal, 398_000, 418_000),
+      ],
+      candidates: [],
+      capMs: 90_000,
+    });
+  });
+
+  it.each([[NaN], [Infinity], [-1], [0]])(
+    'A capMs of %p throws a RangeError even with no moments',
+    (capMs) => {
+      const build = () =>
+        buildReel(fixtures.recording10min, [], {
+          ...DEFAULT_REEL_SETTINGS,
+          capMs,
+        });
+      expect(build).toThrow(RangeError);
+      expect(build).toThrow(
+        `Expected settings.capMs to be a finite number above 0, got ${capMs}`,
+      );
+    },
+  );
+
+  it.each([
+    ['prePadMs', NaN],
+    ['prePadMs', -1],
+    ['postPadMs', Infinity],
+    ['postPadMs', -1],
+  ] as const)(
+    'A %s of %p throws a RangeError even with no moments',
+    (field, value) => {
+      const build = () =>
+        buildReel(fixtures.recording10min, [], {
+          ...DEFAULT_REEL_SETTINGS,
+          [field]: value,
+        });
+      expect(build).toThrow(RangeError);
+      expect(build).toThrow(
+        `Expected settings.${field} to be a finite number at or above 0, got ${value}`,
+      );
+    },
+  );
+
+  it('Zero padding is valid and leaves the moment unpadded', () => {
+    expect(
+      buildReel(fixtures.recording10min, [fixtures.validSave], {
+        ...DEFAULT_REEL_SETTINGS,
+        prePadMs: 0,
+        postPadMs: 0,
+      }).clips,
+    ).toEqual([
+      clip('clip-0', PlayType.Save, 120_000, 124_000, {
+        players: ['p5'],
+        confidence: 0.92,
+      }),
+    ]);
   });
 });

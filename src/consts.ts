@@ -1,8 +1,10 @@
-import { PlayType } from './types';
+import { PlayType, type ReelSettings } from './types';
 
-export const MAX_REEL_LENGTH = 60000;
-export const PRE_PAD_MS = 2000;
-export const POST_PAD_MS = 3000;
+export const DEFAULT_REEL_SETTINGS: Readonly<ReelSettings> = {
+  capMs: 60_000,
+  prePadMs: 2_000,
+  postPadMs: 3_000,
+};
 export const MERGE_GAP_MS = 1000;
 
 export const PLAY_TYPE_PRIORITY: Record<PlayType, number> = {
