@@ -31,7 +31,7 @@ npm run format:check
 
 The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReel` with the default settings produces the reel that follows. `npm test` checks this same run.
 
-`buildReel` is the entry point, and it checks the recording and settings before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect a recording that has already been checked. `convertToClips` takes the padding settings and `selectClips` takes the cap, both required, since filling in defaults is `buildReel`'s job.
+`buildReel` is the entry point, and it checks the recording and settings before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect input that has already been checked. `convertToClips` takes the padding settings and `selectClips` takes the cap, both required, since filling in defaults is `buildReel`'s job.
 
 `buildReel` takes an optional third argument, a `ReelSettings` object with `capMs`, `prePadMs`, and `postPadMs`. It defaults to the exported `DEFAULT_REEL_SETTINGS`, `{ capMs: 60000, prePadMs: 2000, postPadMs: 3000 }`. To change one setting, spread the defaults: `buildReel(recording, rawMoments, { ...DEFAULT_REEL_SETTINGS, capMs: 90000 })`. The reel's `capMs` reports the cap it was built under.
 
@@ -343,3 +343,7 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 ## Next steps
 
 - Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved. Review only changes the status of clips in the built reel, so their ids stay put. A rebuild from new input, such as re-detected moments or new cap and padding settings, is a new reel whose ids may differ, and its review starts over.
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
