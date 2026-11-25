@@ -11,7 +11,7 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 - Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
 - Two raw moments are the same play when they share a recording, have the same play type, and their time ranges overlap or are within one second of each other. Merge those moments into one: earliest start, latest end, highest confidence, and the combined player list.
 - Add `prePadMs` of padding before each merged moment and `postPadMs` after it, two and three seconds by default, then clamp the result so a clip never starts before 0:00 and never ends after the recording does.
-- Give every clip a unique id: `clip-<n>`, numbered from 0 in start order.
+- Give every clip a unique id once, when the reel is built: `clip-<n>`, numbered from 0 in start order across every clip, candidates included. An id is never worked out from a clip's position in the reel and never changes afterward, so a clip that joins the reel later keeps the id it was built with.
 - Cap the reel at `capMs`, 60 seconds by default. Include as many goals as will fit, with no overlapping clips. Fill any remaining time in this order: save, then big play, then skill, then near miss. Within the same play type, prefer higher confidence. Skip a candidate that overlaps a clip already in the reel or that does not fit the remaining time. Sort the finished reel by start time.
 - A newly built reel is not shareable. Shareable is true only when the reel has at least one clip, every clip in it is approved, and the total duration is at or under the cap.
 
@@ -342,4 +342,25 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 
 ## Next steps
 
-- Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved. Review only changes the status of clips in the built reel, so their ids stay put. A rebuild from new input, such as re-detected moments or new cap and padding settings, is a new reel whose ids may differ, and its review starts over.
+### Coach review
+
+Not built yet. When it is, these become Rules and each gets its own test.
+
+- Review acts on a built reel, one clip at a time, by id. It is not a rebuild: no clip gets a new id, and clips still in the reel keep their place and status.
+- Approving a pending clip sets it to approved and locks it in place. An approved clip never moves or leaves the reel.
+- Rejecting a pending clip removes it from the reel and records it in the reel's list of rejected clips. Then the fill step from Rules runs over the leftover time, using the candidates that are not in the reel and were not rejected. It reuses `selectClips`, with the time the clips still in the reel take already counted and a candidate that overlaps one of them skipped.
+- A rejected clip never becomes a candidate again, so it cannot come back as its own backfill.
+- A backfilled clip starts as pending, and the reel stays sorted by start time.
+- Shareable is worked out from the current clips after every action, using the definition in Rules, rather than stored as a flag.
+- Approving or rejecting an id that is not in the reel throws an error, and so does reviewing a clip that is already approved or rejected.
+
+Tests to write, one each:
+
+- Approving or rejecting an id that does not exist.
+- Reviewing a clip that is already approved, and one that is already rejected.
+- Rejecting a clip when no candidate fits the leftover time: the reel gets shorter, and it is shareable if every clip left is approved.
+- Approving the last pending clip makes the reel shareable.
+- A rejected clip is not backfilled into its own leftover time.
+- Backfill does not move or change an approved clip, and the backfilled clip keeps its built id.
+
+A rebuild from new input, such as re-detected moments or new settings, is a new reel whose ids may differ, and its review starts over.
