@@ -11,7 +11,7 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 - Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
 - Two raw moments are the same play when they share a recording, have the same play type, and their time ranges overlap or are within one second of each other. Merge those moments into one: earliest start, latest end, highest confidence, and the combined player list.
 - Add `prePadMs` of padding before each merged moment and `postPadMs` after it, two and three seconds by default, then clamp the result so a clip never starts before 0:00 and never ends after the recording does.
-- Give every clip a unique id: `clip-<n>`, numbered from 0 in start order.
+- Give every clip a unique id, `clip-<n>`, numbered from 0 in start order across all clips, candidates included, when the reel is built, never by where a clip sits in the reel. An id never changes, so a clip that joins the reel later keeps its id.
 - Cap the reel at `capMs`, 60 seconds by default. Include as many goals as will fit, with no overlapping clips. Fill any remaining time in this order: save, then big play, then skill, then near miss. Within the same play type, prefer higher confidence. Skip a candidate that overlaps a clip already in the reel or that does not fit the remaining time. Sort the finished reel by start time.
 - A newly built reel is not shareable. Shareable is true only when the reel has at least one clip, every clip in it is approved, and the total duration is at or under the cap.
 
@@ -342,7 +342,38 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 
 ## Next steps
 
-- Add the coach-review step: approve a clip, or reject it and backfill a next-best play into the leftover time without moving clips already approved. Review only changes the status of clips in the built reel, so their ids stay put. A rebuild from new input, such as re-detected moments or new cap and padding settings, is a new reel whose ids may differ, and its review starts over.
+### Coach review
+
+Not built yet. When it is, these become Rules and each gets its own test.
+
+- Review acts on a built reel, one clip at a time, by id. It is not a rebuild: no clip gets a new id, and clips still in the reel keep their place and status.
+- Approve and reject each return a new reel and do not change the reel passed in, like the rest of the pipeline.
+- Approving a pending clip sets it to approved and locks it in place. An approved clip never moves or leaves the reel.
+- Rejecting a pending clip removes it from the reel and adds it to the reel's list of rejected clips. Then the fill step from Rules runs over the leftover time, using the candidates. Pending clips stay where they are too, and their time counts against the leftover.
+- `selectClips` has to change shape for backfill: today it starts from an empty reel, so it cannot count the time kept clips take or skip a candidate that overlaps one. It will take the clips already in the reel as its starting point, and `buildReel` will pass none.
+- A rejected clip is never a candidate again, so it cannot come back as its own backfill. After a backfill, both the rejected clip and any backfilled clip are gone from `candidates`.
+- A backfilled clip starts as pending, and the reel stays sorted by start time.
+- Shareable is worked out from the current clips after every action, using the definition in Rules, rather than stored as a flag.
+- Throw a `RangeError`, with a message naming the id and the case, when the id does not exist in the reel's clips, candidates, or rejected clips; when the id was already rejected; when the id belongs to a candidate that is not in the reel; or when the clip is already approved.
+
+Tests to write, one each:
+
+- Approving or rejecting an id that does not exist.
+- Approving or rejecting an id that was already rejected.
+- Approving or rejecting a candidate id that is not in the reel.
+- Approving or rejecting a clip that is already approved.
+- Approve and reject leave the reel passed in unchanged.
+- Approving the last pending clip makes the reel shareable.
+- Rejecting the only clip, with no candidate to backfill, leaves an empty reel that is not shareable.
+- Rejecting a clip when no candidate fits the leftover time: the reel gets shorter, and it is shareable if every clip left is approved.
+- Rejecting a clip in an otherwise all-approved reel, where a backfill fits, leaves the reel not shareable because the backfilled clip is pending.
+- A rejected clip appears in the rejected list and is not backfilled into its own leftover time.
+- After a backfill, neither the rejected clip nor the backfilled clip is in `candidates`.
+- Backfill does not move or change an approved clip, and the backfilled clip keeps its built id.
+- A backfill that lands earlier in the game than the clips already in the reel keeps the reel sorted by start time.
+- A candidate that overlaps a pending clip is skipped for backfill, and so is one that does not fit the leftover time.
+
+A rebuild from new input, such as re-detected moments or new settings, is a new reel whose ids may differ, and its review starts over.
 
 ## License
 
