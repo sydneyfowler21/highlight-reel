@@ -213,6 +213,21 @@ describe('reviewClip', () => {
     expect(reelStore.findReel(db, stored.id)).toEqual(stored);
   });
 
+  it('answers 500 and saves nothing when a stored clip has a status review does not handle', async () => {
+    const { db, stored } = dbWithReel();
+    db.$client
+      .prepare(
+        "UPDATE reels SET reel = json_set(reel, '$.clips[0].status', 'bogus') WHERE id = ?",
+      )
+      .run(stored.id);
+    const storedWithBogusStatus = reelStore.findReel(db, stored.id);
+
+    const response = await approveRequest(db, stored.id, 'clip-0', '"1"');
+
+    expect(response.status).toBe(500);
+    expect(reelStore.findReel(db, stored.id)).toEqual(storedWithBogusStatus);
+  });
+
   it('answers 500 through the route when an error that is not a ReviewError escapes', async () => {
     const { db, stored } = dbWithReel();
     jest.spyOn(reelStore, 'saveReel').mockImplementationOnce(() => {
