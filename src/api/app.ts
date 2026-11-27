@@ -1,16 +1,32 @@
-import { Hono } from 'hono';
-import { approve } from '../highlightReel';
+import { Hono, type Context } from 'hono';
+import { approve, reject } from '../highlightReel';
 import { type HighlightReelDb } from '../db/client';
 import { findLatestReelForRecording, findReel } from '../db/reels';
 import { findRecording } from '../db/recordings';
 import { etagFor, reelResponse } from './reelResponse';
-import { reviewClip } from './reviewClip';
+import { reviewClip, type ReviewAction } from './reviewClip';
 
 type ApiEnv = {
   Variables: {
     db: HighlightReelDb;
   };
 };
+
+function reviewRoute(action: ReviewAction) {
+  return (c: Context<ApiEnv, '/reels/:reelId/clips/:clipId/*'>) => {
+    const result = reviewClip(
+      c.get('db'),
+      c.req.param('reelId'),
+      c.req.param('clipId'),
+      c.req.header('If-Match'),
+      action,
+    );
+    if (result.etag) {
+      c.header('ETag', result.etag);
+    }
+    return c.json(result.body, result.status);
+  };
+}
 
 export function createApp(db: HighlightReelDb) {
   const app = new Hono<ApiEnv>();
@@ -55,18 +71,7 @@ export function createApp(db: HighlightReelDb) {
     c.header('ETag', etagFor(latest));
     return c.json(reelResponse(latest));
   });
-  app.post('/reels/:reelId/clips/:clipId/approve', (c) => {
-    const result = reviewClip(
-      c.get('db'),
-      c.req.param('reelId'),
-      c.req.param('clipId'),
-      c.req.header('If-Match'),
-      approve,
-    );
-    if (result.etag) {
-      c.header('ETag', result.etag);
-    }
-    return c.json(result.body, result.status);
-  });
+  app.post('/reels/:reelId/clips/:clipId/approve', reviewRoute(approve));
+  app.post('/reels/:reelId/clips/:clipId/reject', reviewRoute(reject));
   return app;
 }

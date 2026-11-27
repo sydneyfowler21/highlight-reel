@@ -1,4 +1,4 @@
-- [ ] README Rules or Next steps updated if behavior changed
+- [ ] README Rules or Plan updated if behavior changed
 - [ ] a test added for every new guard or edge case (revert the guard and a test should fail)
 - [ ] no comments in code or config
 - [ ] simplest correct design, even if many tests or fixtures change; options named in the description when there was a design choice
