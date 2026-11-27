@@ -23,7 +23,7 @@ REEL=$(curl -s localhost:3000/recordings/rec-1/reel | node -pe 'JSON.parse(requi
 
 The response is a 200 with `ETag: "1"`. The reel has seven pending clips that fill the 60 seconds, six candidates that did not fit, and `"shareable": false`.
 
-Approve the goal, sending back the version you saw:
+Approve the goal at 0:56 (`clip-1`), sending back the version you saw:
 
 ```bash
 curl -i -X POST -H 'If-Match: "1"' localhost:3000/reels/$REEL/clips/clip-1/approve
@@ -51,6 +51,25 @@ curl -i -X POST -H 'If-Match: "2"' localhost:3000/reels/$REEL/clips/clip-0/rejec
 
 That returns 200 with `ETag: "3"`. `clip-0` is now in `rejected`, and `clip-8`, a 6-second skill from later in the game, has joined the reel as pending.
 
+## Endpoints
+
+| Route                                       | Success                                                  | Errors                                          |
+| ------------------------------------------- | -------------------------------------------------------- | ----------------------------------------------- |
+| `GET /recordings/:recordingId/reel`         | 200 with the recording's latest reel and its `ETag`      | 404 `recording-not-found`, 404 `reel-not-found` |
+| `GET /reels/:reelId`                        | 200 with the reel and its `ETag`                         | 404 `reel-not-found`                            |
+| `POST /reels/:reelId/clips/:clipId/approve` | 200 with the updated reel and its new `ETag`             | 428, 404, 412, 409 (below)                      |
+| `POST /reels/:reelId/clips/:clipId/reject`  | 200 with the updated, backfilled reel and its new `ETag` | 428, 404, 412, 409 (below)                      |
+
+A review request must send the reel's `ETag` in `If-Match`, and it is checked in this order:
+
+1. No `If-Match`: 428 `if-match-required`.
+2. Unknown reel: 404 `reel-not-found`.
+3. `If-Match` is not the current `ETag`: 412 `stale-version`, even when the clip has since been approved.
+4. The clip can't be reviewed: 404 `unknown-id`, or 409 `already-approved`, `already-rejected`, or `not-in-reel`.
+5. Someone saved in between: 412 `stale-version`.
+
+Every error body is `{ reason, message, reel }`, with the current reel whenever one exists. [SPEC.md](SPEC.md) has every case.
+
 ## How it works
 
 The reel is built by a pipeline of small, pure functions:
@@ -61,7 +80,7 @@ The reel is built by a pipeline of small, pure functions:
 4. **Select** fills the cap with goals first, then saves, big plays, skills, and near misses, skipping overlaps and clips that do not fit.
 5. **Sort** puts the reel in game order.
 
-Then a coach reviews it. Approving a clip locks it in the reel. Rejecting one moves it to the rejected list and runs the select step again over the time it freed. A reel is shareable once every clip in it is approved.
+Then a coach reviews it. Approving a clip locks it in the reel. Rejecting one moves it to the rejected list and runs the select step again over the time it freed. A reel is shareable when it has at least one clip, every clip in it is approved, and its total length is within the cap.
 
 The seed game covers each of these cases: two overlapping detections of the same goal, a save at 0:01 and a goal at 9:56 that are clamped to the recording's edges, rows that are invalid or belong to another game, and more action than fits in 60 seconds. The fixture is in [`src/fixtures/seedGame.ts`](src/fixtures/seedGame.ts).
 
@@ -69,13 +88,19 @@ The seed game covers each of these cases: two overlapping detections of the same
 
 **A pure library with a thin service around it.** Every rule lives in pure functions in `src/` that take a value and return an updated copy, with no database, clock, or network. The API loads a reel by id, calls one function, and saves the updated reel back under the same id. It never re-implements a rule, and a lint rule stops the library from importing database or HTTP code.
 
-**Noisy input is skipped, not fatal.** Auto-detection is noisy, so raw moments are checked one at a time and a bad row is dropped rather than failing the batch. A moment that runs past the start or end of the game is kept and trimmed, because the play still happened. A bad recording or setting is different: it would make every result wrong, so it throws.
+**Noisy input is skipped, not fatal.** Auto-detection is noisy, so raw moments are checked one at a time and a bad row is dropped rather than failing the batch. A bad recording or setting is different: it would make every result wrong, so it throws.
+
+**A moment entirely outside the recording is skipped.** There's no footage for it, so any clip would be empty or point at video that doesn't exist. A moment that's only partly outside still has real footage, so it's kept and trimmed.
 
 **Clip ids never change.** Ids are given once, when the reel is built. A coach acts on a clip, not on a position in the reel, so a backfill that lands earlier in the game can't change which clip an id points to.
 
 **Approved clips are locked.** Nothing a coach does later drops an approved clip or changes it. A reject backfills only the time around the clips still in the reel, so one decision can't undo another. The reel is always listed in game order, so a backfill from early in the game appears before a clip approved from the end.
 
+**A reject backfills instead of rebuilding.** A rebuild would give clips new ids and throw away the coach's approvals. Filling only the freed time from the reel's own candidates keeps every decision the coach has made.
+
 **The types rule out impossible reels.** A reel's clips are pending or approved, its candidates are pending, and its rejected clips are rejected. A reel whose lists disagree doesn't compile, so no code has to check for one.
+
+**Shareable is worked out, not stored.** Whether a reel is ready depends only on its clips, so storing it would be a second copy that could go stale after any approve or reject. `isShareable` reads it from the clips every time.
 
 **Two reviewers can't overwrite each other.** Every reel carries its version as an `ETag`, HTTP's standard header for labeling one version of a resource, and a review must send that label back in an `If-Match` header. The save is a single conditional `UPDATE` that only writes if the version is still the one the client saw. The slower of two clicks gets a 412 and the current reel instead of overwriting the other change. The version check comes before the review rules, so a stale request about a clip that has since been approved gets a 412, not a 409: that client is acting on a reel it hasn't seen.
 
