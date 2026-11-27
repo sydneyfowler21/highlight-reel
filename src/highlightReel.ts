@@ -108,18 +108,6 @@ export function filterRawMoments(
   );
 }
 
-export function trimToRecording(
-  recording: Recording,
-  rawMoments: RawMoment[],
-): RawMoment[] {
-  return rawMoments.map((moment) => ({
-    ...moment,
-    startMs: Math.max(moment.startMs, 0),
-    endMs: Math.min(moment.endMs, recording.durationMs),
-    players: [...moment.players],
-  }));
-}
-
 export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
   const sortedMoments = [...rawMoments].sort((a, b) => a.startMs - b.startMs);
   const mergedMoments: RawMoment[] = [];
@@ -220,8 +208,7 @@ export function buildReelFromRawMoments(
   assertValidRecording(recording);
   assertValidSettings(settings);
   const filteredMoments = filterRawMoments(recording, rawMoments);
-  const trimmedMoments = trimToRecording(recording, filteredMoments);
-  const mergedMoments = mergeRawMoments(trimmedMoments);
+  const mergedMoments = mergeRawMoments(filteredMoments);
   const clips = convertToClips(recording, mergedMoments, settings);
   const { selected, candidates } = selectClips([], clips, settings.capMs);
   const sortedSelected = [...selected].sort((a, b) => a.startMs - b.startMs);
