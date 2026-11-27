@@ -1,8 +1,10 @@
 import { Hono } from 'hono';
+import { approve } from '../highlightReel';
 import { type HighlightReelDb } from '../db/client';
 import { findLatestReelForRecording, findReel } from '../db/reels';
 import { findRecording } from '../db/recordings';
 import { etagFor, reelResponse } from './reelResponse';
+import { reviewClip } from './reviewClip';
 
 type ApiEnv = {
   Variables: {
@@ -52,6 +54,19 @@ export function createApp(db: HighlightReelDb) {
     }
     c.header('ETag', etagFor(latest));
     return c.json(reelResponse(latest));
+  });
+  app.post('/reels/:reelId/clips/:clipId/approve', (c) => {
+    const result = reviewClip(
+      c.get('db'),
+      c.req.param('reelId'),
+      c.req.param('clipId'),
+      c.req.header('If-Match'),
+      approve,
+    );
+    if (result.etag) {
+      c.header('ETag', result.etag);
+    }
+    return c.json(result.body, result.status);
   });
   return app;
 }
