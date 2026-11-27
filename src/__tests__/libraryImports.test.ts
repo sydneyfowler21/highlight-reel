@@ -2,7 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from '@jest/globals';
 
-const repoRoot = join(__dirname, '..', '..', '..');
+const repoRoot = join(__dirname, '..', '..');
 
 type LintResult = {
   errorCount: number;
@@ -67,6 +67,18 @@ const blocked = [
   {
     source: 'better-sqlite3',
     code: "import Database from 'better-sqlite3';\nexport const value = Database;\n",
+  },
+  {
+    source: '@hono/node-server/serve-static',
+    code: "import { serveStatic } from '@hono/node-server/serve-static';\nexport const value = serveStatic;\n",
+  },
+  {
+    source: 'hono/cors',
+    code: "import { cors } from 'hono/cors';\nexport const value = cors;\n",
+  },
+  {
+    source: './db/schema',
+    code: "import { recordings } from './db/schema';\nexport const value = recordings;\n",
   },
 ];
 
