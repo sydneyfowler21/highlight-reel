@@ -290,6 +290,7 @@ describe.each(reviewEndpoints)(
         reel: otherReview,
       });
     });
+
     it('answers 500 and saves nothing when a stored clip has a status review does not handle', async () => {
       const { db, stored } = dbWithReel();
       db.$client
@@ -298,6 +299,7 @@ describe.each(reviewEndpoints)(
         )
         .run(stored.id);
       const storedWithBogusStatus = reelStore.findReel(db, stored.id);
+      const serverLog = silencedServerLog();
 
       const response = await reviewRequest(
         db,
@@ -307,15 +309,22 @@ describe.each(reviewEndpoints)(
         '"1"',
       );
 
-      expect(response.status).toBe(500);
+      await expectInternalError(response);
+      expect(serverLog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining('status review does not handle'),
+        }),
+      );
       expect(reelStore.findReel(db, stored.id)).toEqual(storedWithBogusStatus);
     });
 
     it('answers 500 through the route when an error that is not a ReviewError escapes', async () => {
       const { db, stored } = dbWithReel();
+      const databaseError = new Error('the database is gone');
       jest.spyOn(reelStore, 'saveReel').mockImplementationOnce(() => {
-        throw new Error('the database is gone');
+        throw databaseError;
       });
+      const serverLog = silencedServerLog();
 
       const response = await reviewRequest(
         db,
@@ -325,7 +334,8 @@ describe.each(reviewEndpoints)(
         '"1"',
       );
 
-      expect(response.status).toBe(500);
+      await expectInternalError(response);
+      expect(serverLog).toHaveBeenCalledWith(databaseError);
     });
   },
 );
@@ -343,6 +353,19 @@ describe('reviewClip', () => {
     expect(reelStore.findReel(db, stored.id)).toEqual(stored);
   });
 });
+
+function silencedServerLog() {
+  return jest.spyOn(console, 'error').mockImplementation(() => {});
+}
+
+async function expectInternalError(response: Response) {
+  expect(response.status).toBe(500);
+  expect(response.headers.get('ETag')).toBeNull();
+  expect(await response.json()).toEqual({
+    reason: 'internal-error',
+    message: 'Something went wrong on the server',
+  });
+}
 
 function reelResponseFor(stored: reelStore.StoredReel) {
   return {

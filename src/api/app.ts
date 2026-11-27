@@ -34,6 +34,16 @@ export function createApp(db: HighlightReelDb) {
     c.set('db', db);
     await next();
   });
+  app.onError((error, c) => {
+    console.error(error);
+    return c.json(
+      {
+        reason: 'internal-error',
+        message: 'Something went wrong on the server',
+      },
+      500,
+    );
+  });
   app.get('/health', (c) => c.json({ status: 'ok' }));
   app.get('/reels/:reelId', (c) => {
     const reelId = c.req.param('reelId');
