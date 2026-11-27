@@ -200,6 +200,16 @@ describe('filterRawMoments', () => {
       filterRawMoments(fixtures.recording10min, [withoutField('recordingId')]),
     ).toEqual([]);
   });
+  it.failing(
+    'Known bug: a moment that starts before 0:00 is kept and can become a clip of zero or negative length',
+    () => {
+      expect(
+        filterRawMoments(fixtures.recording10min, [
+          rawMoment(PlayType.Goal, -10_000, -5_000),
+        ]),
+      ).toEqual([]);
+    },
+  );
 });
 
 describe('mergeRawMoments', () => {
@@ -868,6 +878,27 @@ describe('selectClips', () => {
       selected: [fixtures.skill10s],
       candidates: [goal55s],
     });
+  });
+  it('Kept clips already over the cap all stay, and every other clip becomes a candidate', () => {
+    const shortSkill = clip('clip-skill', PlayType.Skill, 300_000, 301_000);
+    expect(
+      selectClips(
+        [fixtures.bigPlay40sFirst, fixtures.bigPlay40sSecond],
+        [shortSkill],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
+    ).toEqual({
+      selected: [fixtures.bigPlay40sFirst, fixtures.bigPlay40sSecond],
+      candidates: [shortSkill],
+    });
+  });
+
+  it('Selecting leaves the kept clips and the clips to choose from unchanged', () => {
+    const keptClips = [fixtures.goal20sA];
+    const clips = [fixtures.save20s, fixtures.goal20sB];
+    const before = structuredClone({ keptClips, clips });
+    selectClips(keptClips, clips, DEFAULT_REEL_SETTINGS.capMs);
+    expect({ keptClips, clips }).toEqual(before);
   });
 });
 

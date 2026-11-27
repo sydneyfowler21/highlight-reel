@@ -31,7 +31,7 @@ npm run format:check
 
 The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReelFromRawMoments` with the default settings produces the reel that follows. `npm test` checks this same run.
 
-`buildReelFromRawMoments` is the entry point, and it checks the recording and settings before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect input that has already been checked. `convertToClips` takes the padding settings and `selectClips` takes the cap, both required, since filling in defaults is `buildReelFromRawMoments`'s job. `selectClips` also takes the clips to keep, which it starts from: their time counts against the cap, a clip that overlaps one is skipped, and they are returned in `selected` with the clips it adds. `buildReelFromRawMoments` keeps none, and backfill after a reject keeps the clips still in the reel. `isShareable(reel)` reports whether a reel is ready to share, as defined in Rules.
+`buildReelFromRawMoments` is the entry point, and it checks the recording and settings before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect input that has already been checked. `convertToClips` takes the padding settings and `selectClips` takes the cap, both required, since filling in defaults is `buildReelFromRawMoments`'s job. `selectClips` also takes the clips to keep, which it starts from: their time counts against the cap, a clip that overlaps one is skipped, and they are returned in `selected` with the clips it adds. A kept clip is never dropped, even when the kept clips already take more than the cap; every other clip then becomes a candidate. The two lists are expected to be separate, with no clip in both. `buildReelFromRawMoments` keeps none, and backfill after a reject keeps the clips still in the reel. `isShareable(reel)` reports whether a reel is ready to share, as defined in Rules.
 
 `buildReelFromRawMoments` takes an optional third argument, a `ReelSettings` object with `capMs`, `prePadMs`, and `postPadMs`. It defaults to the exported `DEFAULT_REEL_SETTINGS`, `{ capMs: 60000, prePadMs: 2000, postPadMs: 3000 }`. To change one setting, spread the defaults: `buildReelFromRawMoments(recording, rawMoments, { ...DEFAULT_REEL_SETTINGS, capMs: 90000 })`. The reel's `capMs` reports the cap it was built under, and its `rejected` list starts empty.
 
@@ -425,7 +425,7 @@ A coach's UI calls approve and reject in whatever order the coach clicks. Skippi
 - Approve and reject each return a new reel and do not change the reel passed in, like the rest of the pipeline.
 - Approving a pending clip sets it to approved and locks it in place. An approved clip never moves or leaves the reel.
 - Rejecting a pending clip removes it from the reel and adds it to the reel's list of rejected clips. Then the fill step from Rules runs over the leftover time, using the candidates. Pending clips stay where they are too, and their time counts against the leftover.
-- A rejected clip is never a candidate again, so it cannot come back as its own backfill. After a backfill, both the rejected clip and any backfilled clip are gone from `candidates`.
+- A rejected clip is never a candidate again, so it cannot come back as its own backfill. After a backfill, both the rejected clip and any backfilled clip are gone from `candidates`. Backfill passes `selectClips` the reel's remaining candidates only, so after any approve or reject every id is in exactly one of `clips`, `candidates`, or `rejected`.
 - A backfilled clip starts as pending, and the reel stays sorted by start time.
 - Throw a `ReviewError`, a `RangeError` whose message names the id and the case, when the id does not exist in the reel's clips, candidates, or rejected clips; when the id was already rejected; when the id belongs to a candidate that is not in the reel; or when the clip is already approved, whether the action is approve or reject. Its `reason` is `unknown-id`, `already-rejected`, `not-in-reel`, or `already-approved`, so the API can choose a status code without parsing the message.
 
@@ -443,6 +443,7 @@ Tests to write, one each:
 - Rejecting a clip in an otherwise all-approved reel, where a backfill fits, leaves the reel not shareable because the backfilled clip is pending.
 - A rejected clip appears in the rejected list and is not backfilled into its own leftover time.
 - After a backfill, neither the rejected clip nor the backfilled clip is in `candidates`.
+- After a reject with backfill, every id is in exactly one of `clips`, `candidates`, or `rejected`.
 - Backfill does not move or change an approved clip, and the backfilled clip keeps its built id.
 - A backfill that lands earlier in the game than the clips already in the reel keeps the reel sorted by start time.
 - A candidate that overlaps a pending clip is skipped for backfill, and so is one that does not fit the leftover time.
