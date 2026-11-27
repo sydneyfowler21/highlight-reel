@@ -6,6 +6,8 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 
 ## Rules
 
+### Library
+
 - Throw a `RangeError` when the recording's duration is not a finite number above 0. A NaN duration would drop every moment, and an infinite one would let clip ends run forever.
 - Throw a `RangeError` when a setting is out of range: `capMs` must be a finite number above 0, and `prePadMs` and `postPadMs` must each be a finite number at or above 0.
 - Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, lies entirely outside the recording (it ends at or before 0:00, or starts at or after the recording ends), has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
@@ -23,6 +25,13 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 - Every candidate is pending. A clip is approved only while it is in the reel, and an approved clip never leaves it.
 - Throw a `ReviewError`, a `RangeError` whose message names the id, when the id is not in the reel's clips, candidates, or rejected clips (`unknown-id`); when the id was already rejected (`already-rejected`); when the id belongs to a candidate that is not in the reel (`not-in-reel`); or when the clip is already approved, whether the action is approve or reject (`already-approved`). The error's `reason` holds that string, so the API can choose a status code without parsing the message.
 
+### API
+
+- Every reel the API returns has the body `{ id, recordingId, shareable, clips, candidates, rejected, capMs }` and sends its version as an `ETag` header: an integer that starts at 1, in quotes, like `"1"`. `shareable` is worked out by `isShareable` when the reel is read and is never stored.
+- `GET /reels/:reelId` returns that reel. An unknown reel id returns 404 with reason `reel-not-found`.
+- `GET /recordings/:recordingId/reel` returns the recording's latest reel: the one created most recently, or, when two were created in the same millisecond, the one inserted last. An unknown recording returns 404 with reason `recording-not-found`, and a recording with no reel returns 404 with reason `reel-not-found`.
+- An error response is `{ reason, message }`. `reason` is a fixed string a UI can branch on, and `message` is for people. A 404 for an unknown reel or recording sends no reel and no `ETag`.
+
 ## How to run it
 
 ```bash
@@ -35,11 +44,11 @@ npm run format:check
 
 Use Node 22, the version CI runs. Other Node versions may need `make` and a C++ compiler to build better-sqlite3 from source.
 
-`npm test` runs the Jest tests in `src/__tests__/` and `src/api/__tests__/`: unit tests for each step of the pipeline, end-to-end `buildReelFromRawMoments` runs, and the health check. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
+`npm test` runs the Jest tests in `src/__tests__/`, `src/db/__tests__/`, and `src/api/__tests__/`: unit tests for each step of the pipeline and for coach review, end-to-end `buildReelFromRawMoments` runs, the database queries and conditional save, and the API routes. The database and API tests run against an in-memory SQLite database. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
 
 `npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run db:migrate` applies migrations to `data/highlight-reel.db`. `npm run seed` deletes that database, applies the migrations, and stores the seed recording plus the reel `buildReelFromRawMoments` builds from it. Restart a running server after `npm run seed`, because the seed replaces the database file.
 
-`npm start` listens on port 3000, or on `PORT` when it is set, and `npm run dev` restarts the server when files change. `GET /health` returns `{ "status": "ok" }`.
+`npm start` listens on port 3000, or on `PORT` when it is set, and `npm run dev` restarts the server when files change. `GET /health` returns `{ "status": "ok" }`. The reel routes are described in Rules.
 
 ## Usage
 
@@ -383,8 +392,8 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 - **Reel ids are random UUIDs** from `crypto.randomUUID()`. They appear in URLs, and counting ids would let anyone guess other reels.
 - **The version is an integer that starts at 1.** Every save adds 1. The `ETag` is the version in quotes, like `"3"`, as HTTP requires.
 - **A save only succeeds if nobody saved first.** It runs `UPDATE reels SET reel = ?, version = version + 1 WHERE id = ? AND version = ?`, and if no row changes, the API returns 412. Checking `If-Match` first and saving in a separate step would let two clicks both pass the check.
-- **The latest reel for a recording** is the one created most recently. Two reels created in the same millisecond are ordered by `seq`, which increases on each insert, so the one inserted last has the higher `seq`.
-- **The response body is** `{ id, recordingId, shareable, clips, candidates, rejected, capMs }`. `shareable` is worked out by `isShareable` when the reel is read and is never stored. The version is sent only as the `ETag`, so it has one source.
+- **The latest reel for a recording** is found by ordering on `created_at`, then on `seq`, which increases on each insert, both newest first. The index on `recording_id` and `created_at` covers the lookup.
+- **The version is sent only as the `ETag`**, never in the response body, so it has one source.
 - **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing `src/db`, `src/api`, `hono`, `@hono/node-server`, `drizzle-orm`, or `better-sqlite3`.
 - **SQLite file.** The driver is `better-sqlite3`. The database file is `data/highlight-reel.db`, and `data/` is gitignored. `npm run seed` deletes that file, then migrates and inserts.
 
