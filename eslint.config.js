@@ -58,10 +58,18 @@ export default tseslint.config(
     languageOptions: {
       sourceType: 'commonjs',
       globals: {
+        __dirname: 'readonly',
+        __filename: 'readonly',
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
       },
+    },
+  },
+  {
+    files: ['src/db/repoRoot.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {
@@ -95,6 +103,73 @@ export default tseslint.config(
     files: ['src/__tests__/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
+    },
+  },
+  {
+    files: ['src/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'hono',
+              message:
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
+            },
+            {
+              name: '@hono/node-server',
+              message:
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
+            },
+            {
+              name: 'drizzle-orm',
+              message:
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
+            },
+            {
+              name: 'better-sqlite3',
+              message:
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                'hono',
+                'hono/*',
+                '@hono/node-server',
+                '@hono/node-server/*',
+                'drizzle-orm',
+                'drizzle-orm/*',
+                'drizzle-orm/**',
+                'better-sqlite3',
+                'better-sqlite3/*',
+                './db',
+                './db/*',
+                './db/**',
+                './api',
+                './api/*',
+                './api/**',
+                '../db',
+                '../db/*',
+                '../db/**',
+                '../api',
+                '../api/*',
+                '../api/**',
+                'src/db',
+                'src/db/*',
+                'src/db/**',
+                'src/api',
+                'src/api/*',
+                'src/api/**',
+              ],
+              message:
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
+            },
+          ],
+        },
+      ],
     },
   },
   eslintConfigPrettier,

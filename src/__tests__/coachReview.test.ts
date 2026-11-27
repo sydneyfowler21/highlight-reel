@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 import { buildReelFromRawMoments, isShareable } from '../highlightReel';
-import { clip } from './builders';
-import * as seedGame from './seedGame';
+import { clip } from '../fixtures/builders';
+import * as seedGame from '../fixtures/seedGame';
 import { PlayType, type Clip, type Reel } from '../types';
 
 function reelOf(clips: Clip[]): Reel {

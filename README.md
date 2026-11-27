@@ -25,11 +25,17 @@ npm run lint
 npm run format:check
 ```
 
-`npm test` runs the Jest tests in `src/__tests__/`: unit tests for each step of the pipeline plus end-to-end `buildReelFromRawMoments` runs. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
+Use Node 22, the version CI runs. Other Node versions may need `make` and a C++ compiler to build better-sqlite3 from source.
+
+`npm test` runs the Jest tests in `src/__tests__/` and `src/api/__tests__/`: unit tests for each step of the pipeline, end-to-end `buildReelFromRawMoments` runs, and the health check. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
+
+`npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run db:migrate` applies migrations to `data/highlight-reel.db`. `npm run seed` deletes that database, applies the migrations, and stores the seed recording plus the reel `buildReelFromRawMoments` builds from it. Restart a running server after `npm run seed`, because the seed replaces the database file.
+
+`npm start` listens on port 3000, or on `PORT` when it is set, and `npm run dev` restarts the server when files change. `GET /health` returns `{ "status": "ok" }`.
 
 ## Usage
 
-The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReelFromRawMoments` with the default settings produces the reel that follows. `npm test` checks this same run.
+The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/fixtures/seedGame.ts`). Passing that input to `buildReelFromRawMoments` with the default settings produces the reel that follows. `npm test` checks this same run.
 
 `buildReelFromRawMoments` is the entry point, and it checks the recording and settings before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect input that has already been checked. `convertToClips` takes the padding settings and `selectClips` takes the cap, both required, since filling in defaults is `buildReelFromRawMoments`'s job. `selectClips` also takes the clips to keep, which it starts from: their time counts against the cap, a clip that overlaps one is skipped, and they are returned in `selected` with the clips it adds. A kept clip is never dropped, even when the kept clips already take more than the cap; every other clip then becomes a candidate. The two lists are expected to be separate, with no clip in both. `buildReelFromRawMoments` keeps none, and backfill after a reject keeps the clips still in the reel. `isShareable(reel)` reports whether a reel is ready to share, as defined in Rules.
 
@@ -367,14 +373,14 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 
 ### Database
 
-- **Tables.** `recordings` has an id and a duration. `reels` has an id, a recording id, a version, a created-at time, and a `reel` column that holds the library's `Reel` as JSON. Storing the whole `Reel` in one column means a change to the `Reel` type does not need a schema change.
+- **Tables.** `recordings` has an id and a duration. `reels` has a `seq`, an id, a recording id, a version, a created-at time, and a `reel` column that holds the library's `Reel` as JSON. Storing the whole `Reel` in one column means a change to the `Reel` type does not need a schema change.
 - **Reel ids are random UUIDs** from `crypto.randomUUID()`. They appear in URLs, and counting ids would let anyone guess other reels.
 - **The version is an integer that starts at 1.** Every save adds 1. The `ETag` is the version in quotes, like `"3"`, as HTTP requires.
 - **A save only succeeds if nobody saved first.** It runs `UPDATE reels SET reel = ?, version = version + 1 WHERE id = ? AND version = ?`, and if no row changes, the API returns 412. Checking `If-Match` first and saving in a separate step would let two clicks both pass the check.
-- **The latest reel for a recording** is the one created most recently. Two reels created in the same millisecond are ordered by when they were inserted.
+- **The latest reel for a recording** is the one created most recently. Two reels created in the same millisecond are ordered by `seq`, which increases on each insert, so the one inserted last has the higher `seq`.
 - **The response body is** `{ id, recordingId, shareable, clips, candidates, rejected, capMs }`. `shareable` is worked out by `isShareable` when the reel is read and is never stored. The version is sent only as the `ETag`, so it has one source.
-- **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing either folder, `hono`, or `drizzle-orm`.
-- **Left to whoever builds milestone 1:** which SQLite driver to use, where the database file lives (it is gitignored), and whether the seed command resets the database first.
+- **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing `src/db`, `src/api`, `hono`, `@hono/node-server`, `drizzle-orm`, or `better-sqlite3`.
+- **SQLite file.** The driver is `better-sqlite3`. The database file is `data/highlight-reel.db`, and `data/` is gitignored. `npm run seed` deletes that file, then migrates and inserts.
 
 ### Milestones
 
@@ -389,12 +395,12 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 
 #### 1. Database and get-reel API
 
-- [ ] The `recordings` and `reels` tables from Database, with migrations.
-- [ ] A seed command that stores the seed game's recording and builds its reel.
+- [x] The `recordings` and `reels` tables from Database, with migrations.
+- [x] A seed command that stores the seed game's recording and builds its reel.
 - [ ] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id and `shareable`, and its version as an `ETag` header. It returns 404 when the recording does not exist or has no reel.
 - [ ] `GET /reels/:reelId` returns one reel the same way, or 404.
 - [ ] API tests run against an in-memory SQLite database.
-- [ ] A lint rule that stops library code in `src/` from importing database or HTTP code.
+- [x] A lint rule that stops library code in `src/` from importing database or HTTP code.
 
 #### 2. Coach review in the library
 
