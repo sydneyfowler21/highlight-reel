@@ -2,7 +2,8 @@ import { rmSync } from 'node:fs';
 import { buildReelFromRawMoments } from '../highlightReel';
 import { rawMoments, recording } from '../fixtures/seedGame';
 import { applyMigrations, createDb, DEFAULT_DB_PATH } from './client';
-import { recordings, reels } from './schema';
+import { insertReel } from './reels';
+import { recordings } from './schema';
 
 function resetDatabaseFile(path: string) {
   rmSync(path, { force: true });
@@ -20,13 +21,5 @@ db.insert(recordings)
     durationMs: recording.durationMs,
   })
   .run();
-db.insert(reels)
-  .values({
-    id: crypto.randomUUID(),
-    recordingId: recording.id,
-    version: 1,
-    createdAt: new Date(),
-    reel: buildReelFromRawMoments(recording, rawMoments),
-  })
-  .run();
+insertReel(db, recording.id, buildReelFromRawMoments(recording, rawMoments));
 db.$client.close();
