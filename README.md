@@ -360,12 +360,12 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 
 ### Decisions
 
-- **Stack.** Node, Hono for HTTP, Zod to check request bodies, and SQLite through Drizzle.
+- **Stack.** Node, Hono for HTTP, and SQLite through Drizzle.
 - **The library stays pure. The API works by id.** `approve(reel, clipId)` and `reject(reel, clipId)` take a reel and return a new one, with no database involved. The API is the layer that takes ids: it loads the reel by id, calls the function, and saves the result. A client never sends a full reel.
 - **A reel has its own id.** A recording can have more than one reel, because a rebuild makes a new one. The library's `Reel` type has no id; the storage layer adds the id, the recording id, and a version around it. Clip ids are unique only within a reel, so clip routes are nested under the reel: `/reels/:reelId/clips/:clipId`.
 - **A reel is stored as one row.** The library's whole `Reel` goes in one JSON column, so each review action is one read and one write. See Database.
 - **A review save checks the version with `If-Match`.** Every response that returns a reel sends its version as an `ETag` header. A review request must send that value back in `If-Match`. If the reel has changed since, the API returns 412 instead of overwriting the other change. A request with no `If-Match` returns 428, so no client can skip the check.
-- **Status codes.** Approve and reject throw a `ReviewError`, a `RangeError` with a `reason`. A reason of `unknown-id` becomes 404. `already-approved`, `already-rejected`, and `not-in-reel` become 409. An invalid request body is 400.
+- **Status codes.** Approve and reject throw a `ReviewError`, a `RangeError` with a `reason`. A reason of `unknown-id` becomes 404. `already-approved`, `already-rejected`, and `not-in-reel` become 409.
 - **Conflicts return the current reel.** The library treats every repeated action as an error, approving twice included, because it reports exactly what happened. The API decides how forgiving to be. Every 409 and 412 response includes the current reel and its `ETag`, so a UI that retries after a dropped response just shows the reel it gets back. This one rule covers retries of both approve and reject.
 - **Error body.** Every error response is `{ reason, message, reel }`. `reason` is a fixed string the UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag` whenever the reel exists. It is left out for a missing `If-Match`, an unknown reel id, or an unknown recording id.
 - **Which error wins.** A review request is checked in this order, and the first failure is the response:
@@ -376,8 +376,6 @@ Today this is a library that builds a reel from one game's raw moments. The plan
   5. The conditional save changes no row, because someone saved after step 3: 412, reason `stale-version`, with the reel read again so it is current.
 
   Step 3 only makes the common case answer early. Step 5 is what actually prevents the race.
-
-- **Zod checks request bodies only.** Raw moments are still checked row by row in `filterRawMoments`, so one bad row is skipped instead of failing the batch.
 
 ### Database
 
