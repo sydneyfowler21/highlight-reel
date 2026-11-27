@@ -3,9 +3,11 @@ import {
   PlayType,
   type Clip,
   type ClipSelection,
+  type PendingClip,
   type RawMoment,
   type Recording,
   type Reel,
+  type ReelClip,
   type ReelSettings,
   type ReviewErrorReason,
 } from './types';
@@ -15,10 +17,13 @@ export { PlayType } from './types';
 export type {
   Clip,
   ClipSelection,
+  PendingClip,
   RawMoment,
   Recording,
   Reel,
+  ReelClip,
   ReelSettings,
+  RejectedClip,
   ReviewErrorReason,
 } from './types';
 
@@ -143,7 +148,7 @@ export function convertToClips(
   recording: Recording,
   rawMoments: RawMoment[],
   padding: Pick<ReelSettings, 'prePadMs' | 'postPadMs'>,
-): Clip[] {
+): PendingClip[] {
   return rawMoments.map((moment, index) => {
     const paddedStart = Math.max(moment.startMs - padding.prePadMs, 0);
     const paddedEnd = Math.min(
@@ -175,9 +180,13 @@ function totalLengthMs(clips: Clip[]): number {
   return clips.reduce((sum, clip) => sum + lengthMs(clip), 0);
 }
 
+function sortedByStart(clips: ReelClip[]): ReelClip[] {
+  return [...clips].sort((a, b) => a.startMs - b.startMs);
+}
+
 export function selectClips(
-  keptClips: Clip[],
-  clips: Clip[],
+  keptClips: ReelClip[],
+  clips: PendingClip[],
   capMs: number,
 ): ClipSelection {
   const clipsByImportance = [...clips].sort(
@@ -186,7 +195,7 @@ export function selectClips(
       b.confidence - a.confidence,
   );
   const selected = [...keptClips];
-  const candidates: Clip[] = [];
+  const candidates: PendingClip[] = [];
   let reelLengthMs = totalLengthMs(keptClips);
 
   for (const clip of clipsByImportance) {
@@ -213,10 +222,9 @@ export function buildReelFromRawMoments(
   const mergedMoments = mergeRawMoments(filteredMoments);
   const clips = convertToClips(recording, mergedMoments, settings);
   const { selected, candidates } = selectClips([], clips, settings.capMs);
-  const sortedSelected = [...selected].sort((a, b) => a.startMs - b.startMs);
 
   return {
-    clips: sortedSelected,
+    clips: sortedByStart(selected),
     candidates,
     rejected: [],
     capMs: settings.capMs,
@@ -264,7 +272,7 @@ function errorForIdNotInReel(reel: Reel, clipId: string): ReviewError {
   );
 }
 
-function findPendingClip(reel: Reel, clipId: string): Clip {
+function findPendingClip(reel: Reel, clipId: string): ReelClip {
   const clipInReel = reel.clips.find((clip) => clip.id === clipId);
   if (!clipInReel) {
     throw errorForIdNotInReel(reel, clipId);
@@ -277,8 +285,6 @@ function findPendingClip(reel: Reel, clipId: string): Clip {
         'already-approved',
         `Clip ${clipId} is already approved`,
       );
-    case 'rejected':
-      throw alreadyRejectedError(clipId);
   }
 }
 
@@ -289,5 +295,22 @@ export function approve(reel: Reel, clipId: string): Reel {
     clips: reel.clips.map((clip) =>
       clip === pendingClip ? { ...clip, status: 'approved' } : clip,
     ),
+  };
+}
+
+export function reject(reel: Reel, clipId: string): Reel {
+  const pendingClip = findPendingClip(reel, clipId);
+  const keptClips = reel.clips.filter((clip) => clip !== pendingClip);
+  const { selected, candidates } = selectClips(
+    keptClips,
+    reel.candidates,
+    reel.capMs,
+  );
+
+  return {
+    clips: sortedByStart(selected),
+    candidates,
+    rejected: [...reel.rejected, { ...pendingClip, status: 'rejected' }],
+    capMs: reel.capMs,
   };
 }

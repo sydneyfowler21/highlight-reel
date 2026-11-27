@@ -30,15 +30,19 @@ export type Clip = {
   status: 'pending' | 'approved' | 'rejected';
 };
 
+export type PendingClip = Clip & { status: 'pending' };
+export type ReelClip = Clip & { status: 'pending' | 'approved' };
+export type RejectedClip = Clip & { status: 'rejected' };
+
 export type ClipSelection = {
-  selected: Clip[];
-  candidates: Clip[];
+  selected: ReelClip[];
+  candidates: PendingClip[];
 };
 
 export type Reel = {
-  clips: Clip[];
-  candidates: Clip[];
-  rejected: Clip[];
+  clips: ReelClip[];
+  candidates: PendingClip[];
+  rejected: RejectedClip[];
   capMs: number;
 };
 

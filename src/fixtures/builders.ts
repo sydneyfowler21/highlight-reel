@@ -1,4 +1,11 @@
-import { type PlayType, type Clip, type RawMoment } from '../types';
+import {
+  type PlayType,
+  type Clip,
+  type PendingClip,
+  type RawMoment,
+  type ReelClip,
+  type RejectedClip,
+} from '../types';
 
 export function at(gameClock: string): number {
   const minutesAndSeconds = /^(\d+):([0-5]\d)$/.exec(gameClock);
@@ -31,8 +38,8 @@ export function clip(
   type: PlayType,
   startMs: number,
   endMs: number,
-  extra: Partial<Clip> = {},
-): Clip {
+  extra: Partial<Omit<Clip, 'status'>> = {},
+): PendingClip {
   return {
     id,
     type,
@@ -43,4 +50,12 @@ export function clip(
     status: 'pending',
     ...extra,
   };
+}
+
+export function approved(pendingClip: PendingClip): ReelClip {
+  return { ...pendingClip, status: 'approved' };
+}
+
+export function rejected(pendingClip: PendingClip): RejectedClip {
+  return { ...pendingClip, status: 'rejected' };
 }
