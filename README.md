@@ -63,7 +63,7 @@ The reel is built by a pipeline of small, pure functions:
 
 Then a coach reviews it. Approving a clip locks it in place. Rejecting one moves it to the rejected list and runs the select step again over the time it freed. A reel is shareable once every clip in it is approved.
 
-The seed game exercises each of these cases: two overlapping detections of the same goal, a save at 0:01 and a goal at 9:56 that are clamped to the recording's edges, rows that are invalid or belong to another game, and more action than fits in 60 seconds. The fixture is in `src/fixtures/seedGame.ts`.
+The seed game exercises each of these cases: two overlapping detections of the same goal, a save at 0:01 and a goal at 9:56 that are clamped to the recording's edges, rows that are invalid or belong to another game, and more action than fits in 60 seconds. The fixture is in [`src/fixtures/seedGame.ts`](src/fixtures/seedGame.ts).
 
 ## Design decisions
 
@@ -92,9 +92,9 @@ npm run lint
 npm run format:check
 ```
 
-`npm test` runs the Jest tests in `src/__tests__/`, `src/db/__tests__/`, and `src/api/__tests__/`: each pipeline step, coach review, end-to-end builds of the seed game, the database queries and conditional save, and every API route, including one test per step of the review error order and a simulated race between two saves. The database and API tests run against an in-memory SQLite database. `npm run typecheck` checks the project, tests included, with TypeScript in strict mode. CI runs all four on every push.
+`npm test` runs the Jest tests in [`src/__tests__/`](src/__tests__), [`src/db/__tests__/`](src/db/__tests__), and [`src/api/__tests__/`](src/api/__tests__): each pipeline step, coach review, end-to-end builds of the seed game, the database queries and conditional save, and every API route, including one test per step of the review error order and a simulated race between two saves. The database and API tests run against an in-memory SQLite database. `npm run typecheck` checks the project, tests included, with TypeScript in strict mode. CI runs all four on every push.
 
-Use Node 22, the version CI runs. Other versions may need `make` and a C++ compiler to build better-sqlite3. `npm run dev` restarts the server on changes, `PORT` changes its port from 3000, and `npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run seed` replaces the database file, so restart a running server after it.
+Use Node 22, the version CI runs. Other versions may need `make` and a C++ compiler to build better-sqlite3. `npm run dev` restarts the server on changes, `PORT` changes its port from 3000, and `npm run db:generate` writes a migration from [`src/db/schema.ts`](src/db/schema.ts). `npm run seed` replaces the database file, so restart a running server after it.
 
 ## How it was built
 
@@ -102,7 +102,7 @@ I wrote the first version of the pipeline, `buildReel`, by hand. I then refined 
 
 The code has no comments, on purpose, and the rule that bans them has no escape hatches. Both choices are as much for the AI agents that work on this repo as for people. A comment is guidance nothing enforces: it can quietly go stale, and an agent will read a comment next to a bad fix as a reason to keep the fix rather than correct it. An `eslint-disable` or `@ts-expect-error` does the same harm, telling the next agent that silencing a check is acceptable.
 
-Intent lives in names, structure, and tests instead: fixtures are named for the case they cover, a known bug gets an `it.failing` test named for the bug, and setup a comment would have described is asserted. The `local/no-comments` rule in `eslint.config.js` enforces this. Inline ESLint config is turned off, so `eslint-disable` has no effect, and every `@ts-` suppression is banned, so lint and type errors get fixed rather than silenced.
+Intent lives in names, structure, and tests instead: fixtures are named for the case they cover, a known bug gets an `it.failing` test named for the bug, and setup a comment would have described is asserted. The `local/no-comments` rule in [`eslint.config.js`](eslint.config.js) enforces this. Inline ESLint config is turned off, so `eslint-disable` has no effect, and every `@ts-` suppression is banned, so lint and type errors get fixed rather than silenced.
 
 ## What I'd add next
 

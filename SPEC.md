@@ -52,4 +52,4 @@ These rules are the contract for Highlight Reel. The tests check them, and agent
 - Reel ids are random UUIDs from `crypto.randomUUID()`, because they appear in URLs and counting ids would let anyone guess other reels.
 - A save runs `UPDATE reels SET reel = ?, version = version + 1 WHERE id = ? AND version = ?`, and changes no row when the version has moved on. The check and the write are one statement, so two saves from the same version cannot both succeed.
 - The latest reel for a recording is found by ordering on `created_at`, then on `seq`, both newest first. The index on `recording_id` and `created_at` covers the lookup.
-- The library stays in the top level of `src/`, database code in `src/db/`, and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing `src/db`, `src/api`, `hono`, `@hono/node-server`, `drizzle-orm`, or `better-sqlite3`.
+- The library stays in the top level of [`src/`](src), database code in [`src/db/`](src/db), and HTTP code in [`src/api/`](src/api). A lint rule stops the top-level library files from importing `src/db`, `src/api`, `hono`, `@hono/node-server`, `drizzle-orm`, or `better-sqlite3`.
