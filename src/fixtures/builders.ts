@@ -1,9 +1,9 @@
 import {
+  type ApprovedClip,
   type PlayType,
   type Clip,
   type PendingClip,
   type RawMoment,
-  type ReelClip,
   type RejectedClip,
 } from '../types';
 
@@ -52,7 +52,7 @@ export function clip(
   };
 }
 
-export function approved(pendingClip: PendingClip): ReelClip {
+export function approved(pendingClip: PendingClip): ApprovedClip {
   return { ...pendingClip, status: 'approved' };
 }
 

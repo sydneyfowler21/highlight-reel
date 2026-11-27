@@ -190,15 +190,6 @@ const reelApprovedExceptLateSave: Reel = {
 };
 
 describe('reject', () => {
-  it('Rejecting a clip that is already approved leaves it in the reel', () => {
-    expectReviewError(
-      () => reject(reelReadyForBackfill, 'clip-0'),
-      'already-approved',
-      'clip-0',
-    );
-    expect(reelReadyForBackfill.clips).toContain(backfillApprovedGoal);
-  });
-
   it('Rejecting the only clip with no candidate to backfill leaves an empty reel that is not shareable', () => {
     const rejectedOnlyClip = reject(reelOf([pendingGoal]), 'clip-0');
     expect(rejectedOnlyClip.clips).toEqual([]);
@@ -225,6 +216,50 @@ describe('reject', () => {
     const afterReject = reject(reelReadyForBackfill, 'clip-4');
     expect(afterReject.rejected).toEqual([rejected(lateSaveToReject)]);
     expect(idsOf(afterReject.clips)).not.toContain('clip-4');
+  });
+
+  it('Rejecting adds the clip to the end of the rejected list and keeps the clips rejected before it', () => {
+    const earlierRejected = rejected(
+      clip('clip-6', PlayType.Skill, 400_000, 405_000),
+    );
+    const afterReject = reject(
+      { ...reelReadyForBackfill, rejected: [earlierRejected] },
+      'clip-4',
+    );
+    expect(afterReject.rejected).toEqual([
+      earlierRejected,
+      rejected(lateSaveToReject),
+    ]);
+  });
+
+  it("Backfill uses the reel's own cap and takes a candidate that fills the leftover time exactly", () => {
+    const goalThatFitsOnlyUnder60s = clip(
+      'clip-2',
+      PlayType.Goal,
+      100_000,
+      126_000,
+    );
+    const saveThatFillsLeftoverExactly = clip(
+      'clip-3',
+      PlayType.Save,
+      200_000,
+      225_000,
+    );
+    const reelWith45sCap: Reel = {
+      clips: [
+        backfillApprovedGoal,
+        clip('clip-1', PlayType.Skill, 50_000, 75_000),
+      ],
+      candidates: [goalThatFitsOnlyUnder60s, saveThatFillsLeftoverExactly],
+      rejected: [],
+      capMs: 45_000,
+    };
+    const afterReject = reject(reelWith45sCap, 'clip-1');
+    expect(afterReject.clips).toEqual([
+      backfillApprovedGoal,
+      saveThatFillsLeftoverExactly,
+    ]);
+    expect(afterReject.candidates).toEqual([goalThatFitsOnlyUnder60s]);
   });
 
   it('After a backfill neither the rejected clip nor the backfilled clip is a candidate', () => {

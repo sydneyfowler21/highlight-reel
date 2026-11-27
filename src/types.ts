@@ -31,7 +31,8 @@ export type Clip = {
 };
 
 export type PendingClip = Clip & { status: 'pending' };
-export type ReelClip = Clip & { status: 'pending' | 'approved' };
+export type ApprovedClip = Clip & { status: 'approved' };
+export type ReelClip = PendingClip | ApprovedClip;
 export type RejectedClip = Clip & { status: 'rejected' };
 
 export type ClipSelection = {

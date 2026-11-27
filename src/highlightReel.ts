@@ -15,6 +15,7 @@ import {
 export { DEFAULT_REEL_SETTINGS } from './consts';
 export { PlayType } from './types';
 export type {
+  ApprovedClip,
   Clip,
   ClipSelection,
   PendingClip,
@@ -272,7 +273,7 @@ function errorForIdNotInReel(reel: Reel, clipId: string): ReviewError {
   );
 }
 
-function findPendingClip(reel: Reel, clipId: string): ReelClip {
+function findPendingClip(reel: Reel, clipId: string): PendingClip {
   const clipInReel = reel.clips.find((clip) => clip.id === clipId);
   if (!clipInReel) {
     throw errorForIdNotInReel(reel, clipId);
