@@ -100,6 +100,18 @@ export default tseslint.config(
     },
   },
   {
+    files: ['**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: { allowDefaultProject: ['drizzle.config.ts'] },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      '@typescript-eslint/switch-exhaustiveness-check': 'error',
+    },
+  },
+  {
     files: ['src/__tests__/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
