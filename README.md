@@ -6,6 +6,8 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 
 ## Rules
 
+### Library
+
 - Throw a `RangeError` when the recording's duration is not a finite number above 0. A NaN duration would drop every moment, and an infinite one would let clip ends run forever.
 - Throw a `RangeError` when a setting is out of range: `capMs` must be a finite number above 0, and `prePadMs` and `postPadMs` must each be a finite number at or above 0.
 - Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, lies entirely outside the recording (it ends at or before 0:00, or starts at or after the recording ends), has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
@@ -23,6 +25,20 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 - Every candidate is pending. A clip is approved only while it is in the reel, and an approved clip never leaves it.
 - Throw a `ReviewError`, a `RangeError` whose message names the id, when the id is not in the reel's clips, candidates, or rejected clips (`unknown-id`); when the id was already rejected (`already-rejected`); when the id belongs to a candidate that is not in the reel (`not-in-reel`); or when the clip is already approved, whether the action is approve or reject (`already-approved`). The error's `reason` holds that string, so the API can choose a status code without parsing the message.
 
+### API
+
+- Every reel the API returns has the body `{ id, recordingId, shareable, clips, candidates, rejected, capMs }` and sends its version as an `ETag` header: an integer that starts at 1, in quotes, like `"1"`. `shareable` is worked out by `isShareable` when the reel is read and is never stored.
+- `GET /reels/:reelId` returns that reel. An unknown reel id returns 404 with reason `reel-not-found`.
+- `GET /recordings/:recordingId/reel` returns the recording's latest reel: the one created most recently, or, when two were created in the same millisecond, the one inserted last. An unknown recording returns 404 with reason `recording-not-found`, and a recording with no reel returns 404 with reason `reel-not-found`.
+- `POST /reels/:reelId/clips/:clipId/approve` approves a clip in the reel. The request must send the reel's `ETag` in `If-Match`. The approved reel is saved with a conditional save that adds 1 to the version only if nobody saved first, and the response is 200 with the new reel and its new `ETag`.
+- A review request is checked in this order, and the first failure is the response:
+  1. No `If-Match`: 428, reason `if-match-required`.
+  2. Unknown reel id: 404, reason `reel-not-found`.
+  3. `If-Match` is not exactly the reel's current `ETag`: 412, reason `stale-version`. A malformed header, such as `W/"1"` or `*`, is not the `ETag` either, so it gets a 412 too.
+  4. The review action throws a `ReviewError`: 404 for `unknown-id`, otherwise 409, with the error's own reason. Any other error is a bug, so it is not caught and the response is 500.
+  5. The conditional save changes no row, because someone saved after step 3: 412, reason `stale-version`, with the reel read again so it is current.
+- An error response is `{ reason, message, reel }`. `reason` is a fixed string a UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag`. It is left out, with no `ETag`, for a 428 and for a 404 for an unknown reel or recording.
+
 ## How to run it
 
 ```bash
@@ -35,11 +51,11 @@ npm run format:check
 
 Use Node 22, the version CI runs. Other Node versions may need `make` and a C++ compiler to build better-sqlite3 from source.
 
-`npm test` runs the Jest tests in `src/__tests__/` and `src/api/__tests__/`: unit tests for each step of the pipeline, end-to-end `buildReelFromRawMoments` runs, and the health check. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
+`npm test` runs the Jest tests in `src/__tests__/`, `src/db/__tests__/`, and `src/api/__tests__/`: unit tests for each step of the pipeline and for coach review, end-to-end `buildReelFromRawMoments` runs, the database queries and conditional save, and the API routes. The database and API tests run against an in-memory SQLite database. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
 
 `npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run db:migrate` applies migrations to `data/highlight-reel.db`. `npm run seed` deletes that database, applies the migrations, and stores the seed recording plus the reel `buildReelFromRawMoments` builds from it. Restart a running server after `npm run seed`, because the seed replaces the database file.
 
-`npm start` listens on port 3000, or on `PORT` when it is set, and `npm run dev` restarts the server when files change. `GET /health` returns `{ "status": "ok" }`.
+`npm start` listens on port 3000, or on `PORT` when it is set, and `npm run dev` restarts the server when files change. `GET /health` returns `{ "status": "ok" }`. The reel routes are described in Rules.
 
 ## Usage
 
@@ -367,15 +383,8 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 - **A review save checks the version with `If-Match`.** Every response that returns a reel sends its version as an `ETag` header. A review request must send that value back in `If-Match`. If the reel has changed since, the API returns 412 instead of overwriting the other change. A request with no `If-Match` returns 428, so no client can skip the check.
 - **Status codes.** Approve and reject throw a `ReviewError`, a `RangeError` with a `reason`. A reason of `unknown-id` becomes 404. `already-approved`, `already-rejected`, and `not-in-reel` become 409.
 - **Conflicts return the current reel.** The library treats every repeated action as an error, approving twice included, because it reports exactly what happened. The API decides how forgiving to be. Every 409 and 412 response includes the current reel and its `ETag`, so a UI that retries after a dropped response just shows the reel it gets back. This one rule covers retries of both approve and reject.
-- **Error body.** Every error response is `{ reason, message, reel }`. `reason` is a fixed string the UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag` whenever the reel exists. It is left out for a missing `If-Match`, an unknown reel id, or an unknown recording id.
-- **Which error wins.** A review request is checked in this order, and the first failure is the response:
-  1. No `If-Match`: 428, reason `if-match-required`.
-  2. Unknown reel id: 404, reason `reel-not-found`.
-  3. `If-Match` does not match the stored version: 412, reason `stale-version`. This check comes before the review rules, so a stale request about a clip that has since been approved gets a 412, not a 409.
-  4. The review action throws a `ReviewError`: 404 for `unknown-id`, otherwise 409, with the error's own reason.
-  5. The conditional save changes no row, because someone saved after step 3: 412, reason `stale-version`, with the reel read again so it is current.
-
-  Step 3 only makes the common case answer early. Step 5 is what actually prevents the race.
+- **Error body.** Every error response carries the current reel whenever one exists, so a UI never needs a second request to recover. The exact shape is in Rules.
+- **Which error wins.** The order a review request is checked in is in Rules. The version check comes before the review rules, so a stale request about a clip that has since been approved gets a 412, not a 409: the client is acting on a reel it has not seen. That early check only makes the common case answer quickly. The conditional save in the last step is what actually prevents the race.
 
 ### Database
 
@@ -383,8 +392,8 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 - **Reel ids are random UUIDs** from `crypto.randomUUID()`. They appear in URLs, and counting ids would let anyone guess other reels.
 - **The version is an integer that starts at 1.** Every save adds 1. The `ETag` is the version in quotes, like `"3"`, as HTTP requires.
 - **A save only succeeds if nobody saved first.** It runs `UPDATE reels SET reel = ?, version = version + 1 WHERE id = ? AND version = ?`, and if no row changes, the API returns 412. Checking `If-Match` first and saving in a separate step would let two clicks both pass the check.
-- **The latest reel for a recording** is the one created most recently. Two reels created in the same millisecond are ordered by `seq`, which increases on each insert, so the one inserted last has the higher `seq`.
-- **The response body is** `{ id, recordingId, shareable, clips, candidates, rejected, capMs }`. `shareable` is worked out by `isShareable` when the reel is read and is never stored. The version is sent only as the `ETag`, so it has one source.
+- **The latest reel for a recording** is found by ordering on `created_at`, then on `seq`, which increases on each insert, both newest first. The index on `recording_id` and `created_at` covers the lookup.
+- **The version is sent only as the `ETag`**, never in the response body, so it has one source.
 - **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing `src/db`, `src/api`, `hono`, `@hono/node-server`, `drizzle-orm`, or `better-sqlite3`.
 - **SQLite file.** The driver is `better-sqlite3`. The database file is `data/highlight-reel.db`, and `data/` is gitignored. `npm run seed` deletes that file, then migrates and inserts.
 
@@ -414,8 +423,9 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 
 #### 3. Review endpoints
 
-- [ ] `POST /reels/:reelId/clips/:clipId/approve` and `POST /reels/:reelId/clips/:clipId/reject`. Each one loads the reel, applies the action, and saves with the conditional `UPDATE ... WHERE version = ?` from Database, using the version from `If-Match`. The save is what catches a stale version. Errors follow the order in Which error wins. On success, it returns the new reel with its new `ETag`.
-- [ ] One test for each step in Which error wins, plus one where a stale `If-Match` names a clip that has since been approved and gets a 412, not a 409.
+- [x] `POST /reels/:reelId/clips/:clipId/approve` loads the reel, applies `approve`, and saves with the conditional `UPDATE ... WHERE version = ?` from Database. Errors follow the order in Rules. On success, it returns the new reel with its new `ETag`.
+- [ ] `POST /reels/:reelId/clips/:clipId/reject` does the same with `reject`.
+- [ ] One test for each step of the order, for each endpoint, plus one where a stale `If-Match` names a clip that has since been approved and gets a 412, not a 409.
 
 #### Later, not planned yet
 

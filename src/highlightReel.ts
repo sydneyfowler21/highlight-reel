@@ -286,6 +286,12 @@ function findPendingClip(reel: Reel, clipId: string): PendingClip {
         'already-approved',
         `Clip ${clipId} is already approved`,
       );
+    default: {
+      const unhandledClip: never = clipInReel;
+      throw new Error(
+        `Clip ${clipId} has a status review does not handle: ${JSON.stringify(unhandledClip)}`,
+      );
+    }
   }
 }
 
