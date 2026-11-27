@@ -1173,3 +1173,36 @@ describe('buildReelFromRawMoments', () => {
     ).toEqual({ clips: [], candidates: [], rejected: [], capMs: 60_000 });
   });
 });
+
+describe('moments that cross an edge of the recording', () => {
+  it('A moment that starts before 0:00 merges with one just inside the recording, and the merged clip is clamped to 0:00', () => {
+    const reel = buildReelFromRawMoments(fixtures.recording10min, [
+      rawMoment(PlayType.Goal, -2_000, 1_000, { confidence: 0.8 }),
+      rawMoment(PlayType.Goal, 1_500, 4_000, {
+        players: ['p2'],
+        confidence: 0.95,
+      }),
+    ]);
+
+    expect(reel.clips).toEqual([
+      clip('clip-0', PlayType.Goal, 0, 7_000, {
+        players: ['p1', 'p2'],
+        confidence: 0.95,
+      }),
+    ]);
+  });
+
+  it('A moment that ends after the recording merges with one just inside it, and the merged clip is clamped to the end', () => {
+    const reel = buildReelFromRawMoments(fixtures.recording10min, [
+      rawMoment(PlayType.Goal, 596_000, 597_500, { confidence: 0.8 }),
+      rawMoment(PlayType.Goal, 598_000, 602_000, { players: ['p2'] }),
+    ]);
+
+    expect(reel.clips).toEqual([
+      clip('clip-0', PlayType.Goal, 594_000, 600_000, {
+        players: ['p1', 'p2'],
+        confidence: 0.9,
+      }),
+    ]);
+  });
+});

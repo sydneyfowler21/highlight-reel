@@ -94,7 +94,7 @@ npm run format:check
 
 `npm test` runs the Jest tests in [`src/__tests__/`](src/__tests__), [`src/db/__tests__/`](src/db/__tests__), and [`src/api/__tests__/`](src/api/__tests__): each pipeline step, coach review, end-to-end builds of the seed game, the database queries and conditional save, and every API route, including one test per step of the review error order and a simulated race between two saves. The database and API tests run against an in-memory SQLite database. `npm run typecheck` checks the project, tests included, with TypeScript in strict mode. CI runs all four on every push.
 
-Use Node 22, the version CI runs. Other versions may need `make` and a C++ compiler to build better-sqlite3. `npm run dev` restarts the server on changes, `PORT` changes its port from 3000, and `npm run db:generate` writes a migration from [`src/db/schema.ts`](src/db/schema.ts). `npm run seed` replaces the database file, so restart a running server after it.
+Use Node 22, the version CI runs. Other versions may need `make` and a C++ compiler to build better-sqlite3. `npm run dev` restarts the server on changes, `PORT` changes its port from 3000, `HOST` changes its address from `127.0.0.1` (set `HOST=0.0.0.0` to reach it from a container), and `npm run db:generate` writes a migration from [`src/db/schema.ts`](src/db/schema.ts). `npm run seed` replaces the database file, so restart a running server after it.
 
 ## How it was built
 

@@ -112,6 +112,27 @@ describe.each(reviewEndpoints)(
       expect(reelStore.findReel(db, stored.id)).toEqual(stored);
     });
 
+    it.each(['', '   '])(
+      'returns 428 with reason if-match-required for an If-Match of %j',
+      async (ifMatch) => {
+        const { db, stored } = dbWithReel();
+
+        const response = await reviewRequest(
+          db,
+          endpoint,
+          stored.id,
+          'clip-0',
+          ifMatch,
+        );
+
+        expect(response.status).toBe(428);
+        expect(await response.json()).toMatchObject({
+          reason: 'if-match-required',
+        });
+        expect(reelStore.findReel(db, stored.id)).toEqual(stored);
+      },
+    );
+
     it('checks for If-Match before looking up the reel', async () => {
       const { db } = dbWithReel();
 
