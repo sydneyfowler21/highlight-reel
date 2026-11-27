@@ -117,7 +117,6 @@ export const rawMoments: unknown[] = [
 ];
 
 export const expectedReel: Reel = {
-  shareable: false,
   clips: [
     clip('clip-0', PlayType.Save, at('0:00'), at('0:07'), {
       players: ['p4'],
@@ -172,5 +171,6 @@ export const expectedReel: Reel = {
       confidence: 0.6,
     }),
   ],
+  rejected: [],
   capMs: at('1:00'),
 };
