@@ -350,8 +350,9 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 - **The library stays pure. The API works by id.** `approve(reel, clipId)` and `reject(reel, clipId)` take a reel and return a new one, with no database involved. The API is the layer that takes ids: it loads the reel by id, calls the function, and saves the result. A client never sends a full reel.
 - **A reel has its own id.** A recording can have more than one reel, because a rebuild makes a new one. The library's `Reel` type has no id; the storage layer adds the id, the recording id, and a version around it. Clip ids are unique only within a reel, so clip routes are nested under the reel: `/reels/:reelId/clips/:clipId`.
 - **A reel is stored as one row.** Its clips, candidates, and rejected clips go in JSON columns, so each review action is one read and one write.
-- **A review save checks the version.** A review request names the version it acted on. If someone else saved first, the API returns 409 instead of overwriting their change.
+- **A review save checks the version with `If-Match`.** Every response that returns a reel sends its version as an `ETag` header. A review request must send that value back in `If-Match`. If the reel has changed since, the API returns 412 instead of overwriting the other change. A request with no `If-Match` returns 428, so no client can skip the check.
 - **Status codes.** Approve and reject throw a `ReviewError`, a `RangeError` with a `reason`. A reason of `unknown-id` becomes 404. `already-approved`, `already-rejected`, and `not-in-reel` become 409. An invalid request body is 400.
+- **Conflicts return the current reel.** The library treats every repeated action as an error, approving twice included, because it reports exactly what happened. The API decides how forgiving to be. Every 409 and 412 response includes the current reel and its `ETag`, so a UI that retries after a dropped response just shows the reel it gets back. This one rule covers retries of both approve and reject.
 - **Zod checks request bodies only.** Raw moments are still checked row by row in `filterRawMoments`, so one bad row is skipped instead of failing the batch.
 
 ### Milestones
@@ -365,11 +366,11 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 - [x] `buildReel` is renamed `buildReelFromRawMoments`.
 - [x] The review signatures are agreed, to be built in milestone 2: `approve(reel, clipId): Reel`, `reject(reel, clipId): Reel`, and `ReviewError` with the four reasons above.
 
-#### 1. Database and get-reel API (Bobby)
+#### 1. Database and get-reel API
 
 - [ ] A `recordings` table (id, duration) and a `reels` table (id, recording id, clips, candidates, rejected clips, cap, version, created-at time), with migrations.
 - [ ] A seed command that stores the seed game's recording and builds its reel.
-- [ ] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id, version, and `shareable`. It returns 404 when the recording does not exist or has no reel.
+- [ ] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id and `shareable`, and its version as an `ETag` header. It returns 404 when the recording does not exist or has no reel.
 - [ ] `GET /reels/:reelId` returns one reel the same way, or 404.
 - [ ] API tests run against an in-memory SQLite database.
 - [ ] A lint rule that stops library code in `src/` from importing database or HTTP code.
@@ -380,19 +381,18 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 
 #### 3. Review endpoints
 
-- [ ] `POST /reels/:reelId/clips/:clipId/approve` and `POST /reels/:reelId/clips/:clipId/reject`. Each one loads the reel, applies the action, and saves it in one transaction with the version check, then returns the new reel.
-- [ ] One test for each status code above.
+- [ ] `POST /reels/:reelId/clips/:clipId/approve` and `POST /reels/:reelId/clips/:clipId/reject`. Each one checks `If-Match`, then loads the reel, applies the action, and saves it in one transaction, and returns the new reel with its new `ETag`.
+- [ ] One test for each status code above, including a 412 and a 409 that return the current reel.
 
 #### Later, not planned yet
 
 - Endpoints to add recordings and raw moments, and to build a new reel. Until then, the seed command provides the data.
-- Sharing, once its output is decided (see the open question).
 - A review UI that calls the endpoints.
 - Auth: who counts as a coach for a reel.
 
-### Open question
+### Out of scope
 
-- **What does sharing produce?** The goal is a reel the coach can share with the team, but nothing defines what a shareable reel turns into: a link, an exported clip list, or a rendered video.
+- **Sharing.** Nothing is shared in this version. `isShareable` reports whether a reel is ready, and that is as far as this version goes.
 
 ### Coach review
 
@@ -407,14 +407,15 @@ A coach's UI calls approve and reject in whatever order the coach clicks. Skippi
 - `selectClips` has to change shape for backfill: today it starts from an empty reel, so it cannot count the time kept clips take or skip a candidate that overlaps one. It will take the clips already in the reel as its starting point, and `buildReelFromRawMoments` will pass none.
 - A rejected clip is never a candidate again, so it cannot come back as its own backfill. After a backfill, both the rejected clip and any backfilled clip are gone from `candidates`.
 - A backfilled clip starts as pending, and the reel stays sorted by start time.
-- Throw a `ReviewError`, a `RangeError` whose message names the id and the case, when the id does not exist in the reel's clips, candidates, or rejected clips; when the id was already rejected; when the id belongs to a candidate that is not in the reel; or when the clip is already approved. Its `reason` is `unknown-id`, `already-rejected`, `not-in-reel`, or `already-approved`, so the API can choose a status code without parsing the message.
+- Throw a `ReviewError`, a `RangeError` whose message names the id and the case, when the id does not exist in the reel's clips, candidates, or rejected clips; when the id was already rejected; when the id belongs to a candidate that is not in the reel; or when the clip is already approved, whether the action is approve or reject. Its `reason` is `unknown-id`, `already-rejected`, `not-in-reel`, or `already-approved`, so the API can choose a status code without parsing the message.
 
 Tests to write, one each:
 
 - Approving or rejecting an id that does not exist.
 - Approving or rejecting an id that was already rejected.
 - Approving or rejecting a candidate id that is not in the reel.
-- Approving or rejecting a clip that is already approved.
+- Approving a clip that is already approved.
+- Rejecting a clip that is already approved: it throws `already-approved`, and the clip stays in the reel.
 - Approve and reject leave the reel passed in unchanged.
 - Approving the last pending clip makes the reel shareable.
 - Rejecting the only clip, with no candidate to backfill, leaves an empty reel that is not shareable.
