@@ -145,19 +145,20 @@ describe('switch exhaustiveness', () => {
     );
   });
 
-  it('rejects a switch over a union that leaves out a case', () => {
-    expect(results[0]?.ruleIds).toContain(
-      '@typescript-eslint/switch-exhaustiveness-check',
-    );
+  const switchRuleError = {
+    errorCount: 1,
+    ruleIds: ['@typescript-eslint/switch-exhaustiveness-check'],
+  };
+
+  it('rejects a switch over a union that leaves out a case as an error', () => {
+    expect(results[0]).toEqual(switchRuleError);
   });
 
-  it('rejects a switch that hides a missing case behind default', () => {
-    expect(results[1]?.ruleIds).toContain(
-      '@typescript-eslint/switch-exhaustiveness-check',
-    );
+  it('rejects a switch that hides a missing case behind default as an error', () => {
+    expect(results[1]).toEqual(switchRuleError);
   });
 
-  it('allows a switch that handles every case', () => {
-    expect(results[2]?.errorCount).toBe(0);
+  it('allows a switch that handles every case with no errors or warnings', () => {
+    expect(results[2]).toEqual({ errorCount: 0, ruleIds: [] });
   });
 });
