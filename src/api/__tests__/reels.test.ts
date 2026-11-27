@@ -2,8 +2,9 @@ import { describe, expect, it } from '@jest/globals';
 import { createApp } from '../app';
 import { applyMigrations, createDb } from '../../db/client';
 import { insertReel } from '../../db/reels';
+import { eq } from 'drizzle-orm';
 import { recordings, reels } from '../../db/schema';
-import { approved, clip } from '../../fixtures/builders';
+import { approved, clip, rejected } from '../../fixtures/builders';
 import * as seedGame from '../../fixtures/seedGame';
 import { PlayType, type Reel } from '../../types';
 
@@ -14,11 +15,11 @@ function seededDb() {
   return db;
 }
 
-const allApprovedReel: Reel = {
+const reviewedReelWith45sCap: Reel = {
   clips: [approved(clip('clip-0', PlayType.Goal, 0, 20_000))],
-  candidates: [],
-  rejected: [],
-  capMs: 60_000,
+  candidates: [clip('clip-2', PlayType.Save, 300_000, 340_000)],
+  rejected: [rejected(clip('clip-1', PlayType.Skill, 100_000, 110_000))],
+  capMs: 45_000,
 };
 
 describe('GET /reels/:reelId', () => {
@@ -38,19 +39,28 @@ describe('GET /reels/:reelId', () => {
     });
   });
 
-  it('works out shareable from the stored clips when the reel is read', async () => {
+  it('returns a reviewed reel with every list and its cap as stored, and works out shareable on read', async () => {
     const db = seededDb();
-    const stored = insertReel(db, seedGame.recording.id, allApprovedReel);
+    const stored = insertReel(
+      db,
+      seedGame.recording.id,
+      reviewedReelWith45sCap,
+    );
 
     const response = await createApp(db).request(`/reels/${stored.id}`);
 
-    expect(await response.json()).toMatchObject({ shareable: true });
+    expect(await response.json()).toEqual({
+      id: stored.id,
+      recordingId: seedGame.recording.id,
+      shareable: true,
+      ...reviewedReelWith45sCap,
+    });
   });
 
   it('sends the stored version, not a fixed one, as the ETag', async () => {
     const db = seededDb();
     const stored = insertReel(db, seedGame.recording.id, seedGame.expectedReel);
-    db.update(reels).set({ version: 3 }).run();
+    db.update(reels).set({ version: 3 }).where(eq(reels.id, stored.id)).run();
 
     const response = await createApp(db).request(`/reels/${stored.id}`);
 
