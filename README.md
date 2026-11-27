@@ -349,11 +349,22 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 - **Stack.** Node, Hono for HTTP, Zod to check request bodies, and SQLite through Drizzle.
 - **The library stays pure. The API works by id.** `approve(reel, clipId)` and `reject(reel, clipId)` take a reel and return a new one, with no database involved. The API is the layer that takes ids: it loads the reel by id, calls the function, and saves the result. A client never sends a full reel.
 - **A reel has its own id.** A recording can have more than one reel, because a rebuild makes a new one. The library's `Reel` type has no id; the storage layer adds the id, the recording id, and a version around it. Clip ids are unique only within a reel, so clip routes are nested under the reel: `/reels/:reelId/clips/:clipId`.
-- **A reel is stored as one row.** Its clips, candidates, and rejected clips go in JSON columns, so each review action is one read and one write.
+- **A reel is stored as one row.** The library's whole `Reel` goes in one JSON column, so each review action is one read and one write. See Database.
 - **A review save checks the version with `If-Match`.** Every response that returns a reel sends its version as an `ETag` header. A review request must send that value back in `If-Match`. If the reel has changed since, the API returns 412 instead of overwriting the other change. A request with no `If-Match` returns 428, so no client can skip the check.
 - **Status codes.** Approve and reject throw a `ReviewError`, a `RangeError` with a `reason`. A reason of `unknown-id` becomes 404. `already-approved`, `already-rejected`, and `not-in-reel` become 409. An invalid request body is 400.
 - **Conflicts return the current reel.** The library treats every repeated action as an error, approving twice included, because it reports exactly what happened. The API decides how forgiving to be. Every 409 and 412 response includes the current reel and its `ETag`, so a UI that retries after a dropped response just shows the reel it gets back. This one rule covers retries of both approve and reject.
 - **Zod checks request bodies only.** Raw moments are still checked row by row in `filterRawMoments`, so one bad row is skipped instead of failing the batch.
+
+### Database
+
+- **Tables.** `recordings` has an id and a duration. `reels` has an id, a recording id, a version, a created-at time, and a `reel` column that holds the library's `Reel` as JSON. Storing the whole `Reel` in one column means a change to the `Reel` type does not need a schema change.
+- **Reel ids are random UUIDs** from `crypto.randomUUID()`. They appear in URLs, and counting ids would let anyone guess other reels.
+- **The version is an integer that starts at 1.** Every save adds 1. The `ETag` is the version in quotes, like `"3"`, as HTTP requires.
+- **A save only succeeds if nobody saved first.** It runs `UPDATE reels SET reel = ?, version = version + 1 WHERE id = ? AND version = ?`, and if no row changes, the API returns 412. Checking `If-Match` first and saving in a separate step would let two clicks both pass the check.
+- **The latest reel for a recording** is the one created most recently. Two reels created in the same millisecond are ordered by when they were inserted.
+- **The response body is** `{ id, recordingId, shareable, clips, candidates, rejected, capMs }`. `shareable` is worked out by `isShareable` when the reel is read and is never stored. The version is sent only as the `ETag`, so it has one source.
+- **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing either folder, `hono`, or `drizzle-orm`.
+- **Left to whoever builds milestone 1:** which SQLite driver to use, where the database file lives (it is gitignored), and whether the seed command resets the database first.
 
 ### Milestones
 
@@ -368,7 +379,7 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 
 #### 1. Database and get-reel API
 
-- [ ] A `recordings` table (id, duration) and a `reels` table (id, recording id, clips, candidates, rejected clips, cap, version, created-at time), with migrations.
+- [ ] The `recordings` and `reels` tables from Database, with migrations.
 - [ ] A seed command that stores the seed game's recording and builds its reel.
 - [ ] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id and `shareable`, and its version as an `ETag` header. It returns 404 when the recording does not exist or has no reel.
 - [ ] `GET /reels/:reelId` returns one reel the same way, or 404.
