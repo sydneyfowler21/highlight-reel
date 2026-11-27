@@ -65,9 +65,10 @@ const approvedSkill = clip('clip-2', PlayType.Skill, 200_000, 210_000, {
   status: 'approved',
 });
 const candidateNearMiss = clip('clip-3', PlayType.NearMiss, 300_000, 310_000);
+const pendingSaveLater = clip('clip-4', PlayType.Save, 400_000, 410_000);
 
 const reelInReview: Reel = {
-  clips: [pendingGoal, approvedSkill],
+  clips: [pendingGoal, approvedSkill, pendingSaveLater],
   candidates: [candidateNearMiss],
   rejected: [rejectedBigPlay],
   capMs: 60_000,
@@ -92,21 +93,27 @@ function expectReviewError(
 ): void {
   const error = reviewErrorFrom(action);
   expect(error).toBeInstanceOf(RangeError);
+  expect(error.name).toBe('ReviewError');
   expect(error.reason).toBe(reason);
   expect(error.message).toContain(clipId);
 }
 
 describe('approve', () => {
-  it('Approving a pending clip sets it to approved and leaves the rest of the reel as it was', () => {
+  it('Approving a pending clip sets only that clip to approved and leaves the rest of the reel as it was', () => {
     expect(approve(reelInReview, 'clip-0')).toEqual({
       ...reelInReview,
-      clips: [{ ...pendingGoal, status: 'approved' }, approvedSkill],
+      clips: [
+        { ...pendingGoal, status: 'approved' },
+        approvedSkill,
+        pendingSaveLater,
+      ],
     });
   });
 
   it('Approving the last pending clip makes the reel shareable', () => {
-    expect(isShareable(reelInReview)).toBe(false);
-    expect(isShareable(approve(reelInReview, 'clip-0'))).toBe(true);
+    const oneClipLeftToReview = approve(reelInReview, 'clip-0');
+    expect(isShareable(oneClipLeftToReview)).toBe(false);
+    expect(isShareable(approve(oneClipLeftToReview, 'clip-4'))).toBe(true);
   });
 
   it('Approving leaves the reel passed in unchanged', () => {
