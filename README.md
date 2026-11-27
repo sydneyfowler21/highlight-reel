@@ -25,6 +25,8 @@ npm run lint
 npm run format:check
 ```
 
+Use Node 22, the version CI runs. Other Node versions may need `make` and a C++ compiler to build better-sqlite3 from source.
+
 `npm test` runs the Jest tests in `src/__tests__/` and `src/api/__tests__/`: unit tests for each step of the pipeline, end-to-end `buildReelFromRawMoments` runs, and the health check. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
 
 `npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run db:migrate` applies migrations to `data/highlight-reel.db`. `npm run seed` deletes that database, applies the migrations, and stores the seed recording plus the reel `buildReelFromRawMoments` builds from it.
@@ -33,7 +35,7 @@ npm run format:check
 
 ## Usage
 
-The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/__tests__/seedGame.ts`). Passing that input to `buildReelFromRawMoments` with the default settings produces the reel that follows. `npm test` checks this same run.
+The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/fixtures/seedGame.ts`). Passing that input to `buildReelFromRawMoments` with the default settings produces the reel that follows. `npm test` checks this same run.
 
 `buildReelFromRawMoments` is the entry point, and it checks the recording and settings before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect input that has already been checked. `convertToClips` takes the padding settings and `selectClips` takes the cap, both required, since filling in defaults is `buildReelFromRawMoments`'s job. `isShareable(reel)` reports whether a reel is ready to share, as defined in Rules.
 

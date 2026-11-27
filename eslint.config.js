@@ -107,12 +107,22 @@ export default tseslint.config(
             {
               name: 'hono',
               message:
-                'Top-level library files cannot import hono, drizzle-orm, src/db, or src/api.',
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
+            },
+            {
+              name: '@hono/node-server',
+              message:
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
             },
             {
               name: 'drizzle-orm',
               message:
-                'Top-level library files cannot import hono, drizzle-orm, src/db, or src/api.',
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
+            },
+            {
+              name: 'better-sqlite3',
+              message:
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
             },
           ],
           patterns: [
@@ -120,9 +130,13 @@ export default tseslint.config(
               group: [
                 'hono',
                 'hono/*',
+                '@hono/node-server',
+                '@hono/node-server/*',
                 'drizzle-orm',
                 'drizzle-orm/*',
                 'drizzle-orm/**',
+                'better-sqlite3',
+                'better-sqlite3/*',
                 './db',
                 './db/*',
                 './db/**',
@@ -143,7 +157,7 @@ export default tseslint.config(
                 'src/api/**',
               ],
               message:
-                'Top-level library files cannot import hono, drizzle-orm, src/db, or src/api.',
+                'Top-level library files cannot import hono, @hono/node-server, drizzle-orm, better-sqlite3, src/db, or src/api.',
             },
           ],
         },

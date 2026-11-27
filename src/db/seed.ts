@@ -1,6 +1,6 @@
 import { rmSync } from 'node:fs';
 import { buildReelFromRawMoments } from '../highlightReel';
-import { rawMoments, recording } from '../__tests__/seedGame';
+import { rawMoments, recording } from '../fixtures/seedGame';
 import { applyMigrations, createDb, DEFAULT_DB_PATH } from './client';
 import { recordings, reels } from './schema';
 
