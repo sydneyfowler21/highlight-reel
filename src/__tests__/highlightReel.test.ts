@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 import {
-  buildReel,
+  buildReelFromRawMoments,
   convertToClips,
   filterRawMoments,
   mergeRawMoments,
@@ -825,9 +825,12 @@ describe('selectClips', () => {
   });
 });
 
-describe('buildReel', () => {
-  it('A full game of raw moments becomes a sorted, unshareable reel within the 60s cap', () => {
-    const reel = buildReel(seedGame.recording, seedGame.rawMoments);
+describe('buildReelFromRawMoments', () => {
+  it('A full game of raw moments becomes a sorted reel within the 60s cap', () => {
+    const reel = buildReelFromRawMoments(
+      seedGame.recording,
+      seedGame.rawMoments,
+    );
     expect({
       ...reel,
       clips: ignoringPlayerOrder(reel.clips),
@@ -839,18 +842,18 @@ describe('buildReel', () => {
     });
   });
 
-  it('An empty input list yields an unshareable empty reel under the default cap', () => {
-    expect(buildReel(fixtures.recording10min, [])).toEqual({
-      shareable: false,
+  it('An empty input list yields an empty reel under the default cap', () => {
+    expect(buildReelFromRawMoments(fixtures.recording10min, [])).toEqual({
       clips: [],
       candidates: [],
+      rejected: [],
       capMs: 60_000,
     });
   });
 
   it('Candidates are ranked by play type, then confidence', () => {
     expect(
-      buildReel(fixtures.recording10min, [
+      buildReelFromRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.NearMiss, 100_000, 110_000, {
           players: ['p12'],
           confidence: 0.99,
@@ -885,25 +888,27 @@ describe('buildReel', () => {
     const goalWithoutPlayers = withoutField('players');
     const overlappingGoal = rawMoment(PlayType.Goal, 190_000, 195_000);
     expect(
-      buildReel(fixtures.recording10min, [goalWithoutPlayers, overlappingGoal]),
+      buildReelFromRawMoments(fixtures.recording10min, [
+        goalWithoutPlayers,
+        overlappingGoal,
+      ]),
     ).toEqual({
-      shareable: false,
       clips: [clip('clip-0', PlayType.Goal, 188_000, 198_000)],
       candidates: [],
+      rejected: [],
       capMs: 60_000,
     });
   });
 
   it('Moments with NaN times or confidence are skipped and the rest of the reel is built', () => {
     expect(
-      buildReel(fixtures.recording10min, [
+      buildReelFromRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, NaN, 50_000),
         rawMoment(PlayType.Goal, 300_000, NaN),
         rawMoment(PlayType.Goal, 400_000, 404_000, { confidence: NaN }),
         fixtures.validSave,
       ]),
     ).toEqual({
-      shareable: false,
       clips: [
         clip('clip-0', PlayType.Save, 118_000, 127_000, {
           players: ['p5'],
@@ -911,6 +916,7 @@ describe('buildReel', () => {
         }),
       ],
       candidates: [],
+      rejected: [],
       capMs: 60_000,
     });
   });
@@ -919,30 +925,36 @@ describe('buildReel', () => {
     'A recording with a durationMs of %p throws',
     (durationMs) => {
       expect(() =>
-        buildReel(recordingLasting(durationMs), [fixtures.validSave]),
+        buildReelFromRawMoments(recordingLasting(durationMs), [
+          fixtures.validSave,
+        ]),
       ).toThrow(RangeError);
     },
   );
 
   it('A recording with a NaN durationMs throws even with no moments', () => {
-    expect(() => buildReel(recordingLasting(NaN), [])).toThrow(RangeError);
+    expect(() => buildReelFromRawMoments(recordingLasting(NaN), [])).toThrow(
+      RangeError,
+    );
   });
 
   it('A 1ms recording is valid and builds a 1ms clip', () => {
     expect(
-      buildReel(recordingLasting(1), [rawMoment(PlayType.Goal, 0, 1)]).clips,
+      buildReelFromRawMoments(recordingLasting(1), [
+        rawMoment(PlayType.Goal, 0, 1),
+      ]).clips,
     ).toEqual([clip('clip-0', PlayType.Goal, 0, 1)]);
   });
 
   it('The error names the invalid durationMs', () => {
-    expect(() => buildReel(recordingLasting(NaN), [])).toThrow(
+    expect(() => buildReelFromRawMoments(recordingLasting(NaN), [])).toThrow(
       'Expected recording.durationMs to be a finite number above 0, got NaN',
     );
   });
 
   it('Selected clips are sorted by start time', () => {
     expect(
-      buildReel(fixtures.recording10min, [
+      buildReelFromRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 100_000, 104_000),
         rawMoment(PlayType.Save, 10_000, 14_000, {
           players: ['p5'],
@@ -950,7 +962,6 @@ describe('buildReel', () => {
         }),
       ]),
     ).toEqual({
-      shareable: false,
       clips: [
         clip('clip-0', PlayType.Save, 8_000, 17_000, {
           players: ['p5'],
@@ -959,13 +970,14 @@ describe('buildReel', () => {
         clip('clip-1', PlayType.Goal, 98_000, 107_000),
       ],
       candidates: [],
+      rejected: [],
       capMs: 60_000,
     });
   });
 
   it('Builds with the given cap and padding and reports that cap', () => {
     expect(
-      buildReel(
+      buildReelFromRawMoments(
         fixtures.recording10min,
         [
           rawMoment(PlayType.Goal, 100_000, 120_000),
@@ -974,18 +986,18 @@ describe('buildReel', () => {
         { capMs: 30_000, prePadMs: 1_000, postPadMs: 0 },
       ),
     ).toEqual({
-      shareable: false,
       clips: [clip('clip-0', PlayType.Goal, 99_000, 120_000)],
       candidates: [
         clip('clip-1', PlayType.Goal, 299_000, 320_000, { confidence: 0.8 }),
       ],
+      rejected: [],
       capMs: 30_000,
     });
   });
 
   it('Fills past 60s when the cap is above the default', () => {
     expect(
-      buildReel(
+      buildReelFromRawMoments(
         fixtures.recording10min,
         [
           rawMoment(PlayType.Goal, 100_000, 115_000),
@@ -996,7 +1008,6 @@ describe('buildReel', () => {
         { ...DEFAULT_REEL_SETTINGS, capMs: 90_000 },
       ),
     ).toEqual({
-      shareable: false,
       clips: [
         clip('clip-0', PlayType.Goal, 98_000, 118_000),
         clip('clip-1', PlayType.Goal, 198_000, 218_000),
@@ -1004,6 +1015,7 @@ describe('buildReel', () => {
         clip('clip-3', PlayType.Goal, 398_000, 418_000),
       ],
       candidates: [],
+      rejected: [],
       capMs: 90_000,
     });
   });
@@ -1012,7 +1024,7 @@ describe('buildReel', () => {
     'A capMs of %p throws a RangeError even with no moments',
     (capMs) => {
       const build = () =>
-        buildReel(fixtures.recording10min, [], {
+        buildReelFromRawMoments(fixtures.recording10min, [], {
           ...DEFAULT_REEL_SETTINGS,
           capMs,
         });
@@ -1032,7 +1044,7 @@ describe('buildReel', () => {
     'A %s of %p throws a RangeError even with no moments',
     (field, value) => {
       const build = () =>
-        buildReel(fixtures.recording10min, [], {
+        buildReelFromRawMoments(fixtures.recording10min, [], {
           ...DEFAULT_REEL_SETTINGS,
           [field]: value,
         });
@@ -1045,7 +1057,7 @@ describe('buildReel', () => {
 
   it('Zero padding is valid and leaves the moment unpadded', () => {
     expect(
-      buildReel(fixtures.recording10min, [fixtures.validSave], {
+      buildReelFromRawMoments(fixtures.recording10min, [fixtures.validSave], {
         ...DEFAULT_REEL_SETTINGS,
         prePadMs: 0,
         postPadMs: 0,

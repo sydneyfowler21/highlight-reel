@@ -36,9 +36,9 @@ export type ClipSelection = {
 };
 
 export type Reel = {
-  shareable: boolean;
   clips: Clip[];
   candidates: Clip[];
+  rejected: Clip[];
   capMs: number;
 };
 

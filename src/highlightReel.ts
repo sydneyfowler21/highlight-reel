@@ -196,7 +196,7 @@ export function selectClips(clips: Clip[], capMs: number): ClipSelection {
   return { selected, candidates };
 }
 
-export function buildReel(
+export function buildReelFromRawMoments(
   recording: Recording,
   rawMoments: unknown[],
   settings: ReelSettings = consts.DEFAULT_REEL_SETTINGS,
@@ -210,9 +210,21 @@ export function buildReel(
   const sortedSelected = [...selected].sort((a, b) => a.startMs - b.startMs);
 
   return {
-    shareable: false,
     clips: sortedSelected,
     candidates,
+    rejected: [],
     capMs: settings.capMs,
   };
+}
+
+export function isShareable(reel: Reel): boolean {
+  const totalMs = reel.clips.reduce(
+    (sum, clip) => sum + clip.endMs - clip.startMs,
+    0,
+  );
+  return (
+    reel.clips.length > 0 &&
+    reel.clips.every((clip) => clip.status === 'approved') &&
+    totalMs <= reel.capMs
+  );
 }
