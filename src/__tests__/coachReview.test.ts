@@ -260,6 +260,7 @@ describe('reject', () => {
       saveThatFillsLeftoverExactly,
     ]);
     expect(afterReject.candidates).toEqual([goalThatFitsOnlyUnder60s]);
+    expect(afterReject.capMs).toBe(45_000);
   });
 
   it('After a backfill neither the rejected clip nor the backfilled clip is a candidate', () => {

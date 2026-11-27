@@ -406,7 +406,7 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 - [x] The `recordings` and `reels` tables from Database, with migrations.
 - [x] A seed command that stores the seed game's recording and builds its reel.
 - [ ] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id and `shareable`, and its version as an `ETag` header. It returns 404 when the recording does not exist or has no reel.
-- [ ] `GET /reels/:reelId` returns one reel the same way, or 404.
+- [x] `GET /reels/:reelId` returns one reel the same way, or 404.
 - [ ] API tests run against an in-memory SQLite database.
 - [x] A lint rule that stops library code in `src/` from importing database or HTTP code.
 
