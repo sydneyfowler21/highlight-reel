@@ -42,6 +42,9 @@ export type Reel = {
   capMs: number;
 };
 
+export type ReviewErrorReason =
+  'unknown-id' | 'already-rejected' | 'not-in-reel' | 'already-approved';
+
 export type ReelSettings = {
   capMs: number;
   prePadMs: number;

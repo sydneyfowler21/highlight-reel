@@ -1,8 +1,18 @@
 import { describe, expect, it } from '@jest/globals';
-import { buildReelFromRawMoments, isShareable } from '../highlightReel';
+import {
+  approve,
+  buildReelFromRawMoments,
+  isShareable,
+  ReviewError,
+} from '../highlightReel';
 import { clip } from '../fixtures/builders';
 import * as seedGame from '../fixtures/seedGame';
-import { PlayType, type Clip, type Reel } from '../types';
+import {
+  PlayType,
+  type Clip,
+  type Reel,
+  type ReviewErrorReason,
+} from '../types';
 
 function reelOf(clips: Clip[]): Reel {
   return { clips, candidates: [], rejected: [], capMs: 60_000 };
@@ -44,5 +54,96 @@ describe('isShareable', () => {
     expect(
       isShareable(reelOf([approvedGoal, approvedSave, approvedSkillPastCap])),
     ).toBe(false);
+  });
+});
+
+const pendingGoal = clip('clip-0', PlayType.Goal, 0, 20_000);
+const rejectedBigPlay = clip('clip-1', PlayType.BigPlay, 100_000, 110_000, {
+  status: 'rejected',
+});
+const approvedSkill = clip('clip-2', PlayType.Skill, 200_000, 210_000, {
+  status: 'approved',
+});
+const candidateNearMiss = clip('clip-3', PlayType.NearMiss, 300_000, 310_000);
+
+const reelInReview: Reel = {
+  clips: [pendingGoal, approvedSkill],
+  candidates: [candidateNearMiss],
+  rejected: [rejectedBigPlay],
+  capMs: 60_000,
+};
+
+function reviewErrorFrom(action: () => unknown): ReviewError {
+  try {
+    action();
+  } catch (error) {
+    if (error instanceof ReviewError) {
+      return error;
+    }
+    throw error;
+  }
+  throw new Error('Expected a ReviewError, but nothing was thrown');
+}
+
+function expectReviewError(
+  action: () => unknown,
+  reason: ReviewErrorReason,
+  clipId: string,
+): void {
+  const error = reviewErrorFrom(action);
+  expect(error).toBeInstanceOf(RangeError);
+  expect(error.reason).toBe(reason);
+  expect(error.message).toContain(clipId);
+}
+
+describe('approve', () => {
+  it('Approving a pending clip sets it to approved and leaves the rest of the reel as it was', () => {
+    expect(approve(reelInReview, 'clip-0')).toEqual({
+      ...reelInReview,
+      clips: [{ ...pendingGoal, status: 'approved' }, approvedSkill],
+    });
+  });
+
+  it('Approving the last pending clip makes the reel shareable', () => {
+    expect(isShareable(reelInReview)).toBe(false);
+    expect(isShareable(approve(reelInReview, 'clip-0'))).toBe(true);
+  });
+
+  it('Approving leaves the reel passed in unchanged', () => {
+    const before = structuredClone(reelInReview);
+    approve(reelInReview, 'clip-0');
+    expect(reelInReview).toEqual(before);
+  });
+
+  it('Approving an id that does not exist throws unknown-id', () => {
+    expectReviewError(
+      () => approve(reelInReview, 'clip-99'),
+      'unknown-id',
+      'clip-99',
+    );
+  });
+
+  it('Approving an id that was already rejected throws already-rejected', () => {
+    expectReviewError(
+      () => approve(reelInReview, 'clip-1'),
+      'already-rejected',
+      'clip-1',
+    );
+  });
+
+  it('Approving a candidate that is not in the reel throws not-in-reel', () => {
+    expectReviewError(
+      () => approve(reelInReview, 'clip-3'),
+      'not-in-reel',
+      'clip-3',
+    );
+  });
+
+  it('Approving a clip that is already approved throws already-approved', () => {
+    expectReviewError(
+      () => approve(reelInReview, 'clip-2'),
+      'already-approved',
+      'clip-2',
+    );
   });
 });
