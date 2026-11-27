@@ -1,11 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import {
-  buildReelFromRawMoments,
-  convertToClips,
-  filterRawMoments,
-  mergeRawMoments,
-  selectClips,
-} from '../highlightReel';
+import * as highlightReel from '../highlightReel';
 import { DEFAULT_REEL_SETTINGS } from '../consts';
 import { clip, rawMoment } from './builders';
 import * as fixtures from './fixtures';
@@ -30,12 +24,14 @@ function ignoringPlayerOrder<T extends { players: string[] }>(items: T[]): T[] {
 
 describe('filterRawMoments', () => {
   it('An empty input list yields an empty result', () => {
-    expect(filterRawMoments(fixtures.recording10min, [])).toEqual([]);
+    expect(highlightReel.filterRawMoments(fixtures.recording10min, [])).toEqual(
+      [],
+    );
   });
 
   it('A moment that ends before it starts is invalid and is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 200_000, 100_000, { confidence: 0.9 }),
       ]),
     ).toEqual([]);
@@ -43,7 +39,7 @@ describe('filterRawMoments', () => {
 
   it('A moment that ends at the same instant it starts is invalid and is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 200_000, 200_000, { confidence: 0.9 }),
       ]),
     ).toEqual([]);
@@ -51,7 +47,7 @@ describe('filterRawMoments', () => {
 
   it('A moment with a play type that is not in the known set is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         { ...rawMoment(PlayType.Goal, 100_000, 200_000), type: 'foul' },
       ]),
     ).toEqual([]);
@@ -60,13 +56,15 @@ describe('filterRawMoments', () => {
   it.each([[null], ['goal']])(
     'A value that is not an object, like %p, is skipped',
     (value) => {
-      expect(filterRawMoments(fixtures.recording10min, [value])).toEqual([]);
+      expect(
+        highlightReel.filterRawMoments(fixtures.recording10min, [value]),
+      ).toEqual([]);
     },
   );
 
   it('A moment with a confidence score under 0 is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 100_000, 200_000, { confidence: -0.1 }),
       ]),
     ).toEqual([]);
@@ -74,7 +72,7 @@ describe('filterRawMoments', () => {
 
   it('A moment with a confidence score over 1 is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 100_000, 200_000, { confidence: 1.1 }),
       ]),
     ).toEqual([]);
@@ -82,13 +80,13 @@ describe('filterRawMoments', () => {
 
   it('A moment with confidence score 0 or 1 is valid', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 100_000, 200_000, { confidence: 0 }),
       ]),
     ).toEqual([rawMoment(PlayType.Goal, 100_000, 200_000, { confidence: 0 })]);
 
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 100_000, 200_000, { confidence: 1 }),
       ]),
     ).toEqual([rawMoment(PlayType.Goal, 100_000, 200_000, { confidence: 1 })]);
@@ -96,7 +94,7 @@ describe('filterRawMoments', () => {
 
   it('A moment that belongs to a different recording is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 100_000, 200_000, { recordingId: 'rec-2' }),
       ]),
     ).toEqual([]);
@@ -104,25 +102,47 @@ describe('filterRawMoments', () => {
 
   it('A moment that starts at or after the recording ends is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 600_000, 605_000, { confidence: 0.9 }),
       ]),
     ).toEqual([]);
   });
 
-  it('A moment that ends after the recording is skipped', () => {
+  it('A moment that starts inside the recording and ends after it is kept for trimming', () => {
+    const moment = rawMoment(PlayType.Goal, 598_000, 601_000);
     expect(
-      filterRawMoments(fixtures.recording10min, [
-        rawMoment(PlayType.Goal, 598_000, 601_000, { confidence: 0.9 }),
-      ]),
-    ).toEqual([]);
+      highlightReel.filterRawMoments(fixtures.recording10min, [moment]),
+    ).toEqual([moment]);
+  });
+
+  it.each([
+    [-10_000, -5_000],
+    [-5_000, 0],
+  ])(
+    'A moment from %p to %p, ending at or before 0:00, is skipped',
+    (startMs, endMs) => {
+      expect(
+        highlightReel.filterRawMoments(fixtures.recording10min, [
+          rawMoment(PlayType.Goal, startMs, endMs),
+        ]),
+      ).toEqual([]);
+    },
+  );
+
+  it('A moment that starts before 0:00 and ends inside the recording is kept for trimming', () => {
+    const moment = rawMoment(PlayType.Goal, -1_000, 3_000);
+    expect(
+      highlightReel.filterRawMoments(fixtures.recording10min, [moment]),
+    ).toEqual([moment]);
   });
 
   it.each(['startMs', 'endMs'] as const)(
     'A moment missing %s is skipped',
     (field) => {
       expect(
-        filterRawMoments(fixtures.recording10min, [withoutField(field)]),
+        highlightReel.filterRawMoments(fixtures.recording10min, [
+          withoutField(field),
+        ]),
       ).toEqual([]);
     },
   );
@@ -131,7 +151,9 @@ describe('filterRawMoments', () => {
     'A moment missing %s is skipped',
     (field) => {
       expect(
-        filterRawMoments(fixtures.recording10min, [withoutField(field)]),
+        highlightReel.filterRawMoments(fixtures.recording10min, [
+          withoutField(field),
+        ]),
       ).toEqual([]);
     },
   );
@@ -143,7 +165,7 @@ describe('filterRawMoments', () => {
     ['startMs', -Infinity],
   ] as const)('A moment with a %s of %p is skipped', (field, value) => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 100_000, 200_000, { [field]: value }),
       ]),
     ).toEqual([]);
@@ -153,7 +175,7 @@ describe('filterRawMoments', () => {
     'A moment whose players is %p is skipped',
     (players) => {
       expect(
-        filterRawMoments(fixtures.recording10min, [
+        highlightReel.filterRawMoments(fixtures.recording10min, [
           { ...rawMoment(PlayType.Goal, 100_000, 200_000), players },
         ]),
       ).toEqual([]);
@@ -162,13 +184,15 @@ describe('filterRawMoments', () => {
 
   it('A well-formed moment for this recording is kept unchanged', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [fixtures.validSave]),
+      highlightReel.filterRawMoments(fixtures.recording10min, [
+        fixtures.validSave,
+      ]),
     ).toEqual([fixtures.validSave]);
   });
 
   it('Mixed list keeps only valid moments', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [
+      highlightReel.filterRawMoments(fixtures.recording10min, [
         fixtures.validSave,
         rawMoment(PlayType.Goal, 200_000, 100_000, { confidence: 0.9 }),
         rawMoment(PlayType.Save, 140_000, 145_000, { confidence: 1.4 }),
@@ -184,12 +208,14 @@ describe('filterRawMoments', () => {
 
   it('A 1ms recording is valid and keeps a moment that fills it', () => {
     const moment = rawMoment(PlayType.Goal, 0, 1);
-    expect(filterRawMoments(recordingLasting(1), [moment])).toEqual([moment]);
+    expect(
+      highlightReel.filterRawMoments(recordingLasting(1), [moment]),
+    ).toEqual([moment]);
   });
 
   it('A moment whose recordingId is the number form of the recording id is skipped', () => {
     expect(
-      filterRawMoments({ ...fixtures.recording10min, id: '1' }, [
+      highlightReel.filterRawMoments({ ...fixtures.recording10min, id: '1' }, [
         { ...rawMoment(PlayType.Goal, 100_000, 200_000), recordingId: 1 },
       ]),
     ).toEqual([]);
@@ -197,34 +223,68 @@ describe('filterRawMoments', () => {
 
   it('A moment with no recordingId is skipped', () => {
     expect(
-      filterRawMoments(fixtures.recording10min, [withoutField('recordingId')]),
+      highlightReel.filterRawMoments(fixtures.recording10min, [
+        withoutField('recordingId'),
+      ]),
     ).toEqual([]);
   });
-  it.failing(
-    'Known bug: a moment that starts before 0:00 is kept and can become a clip of zero or negative length',
-    () => {
-      expect(
-        filterRawMoments(fixtures.recording10min, [
-          rawMoment(PlayType.Goal, -10_000, -5_000),
-        ]),
-      ).toEqual([]);
-    },
-  );
+});
+
+describe('trimToRecording', () => {
+  it('A moment inside the recording is unchanged', () => {
+    expect(
+      highlightReel.trimToRecording(fixtures.recording10min, [
+        fixtures.validSave,
+      ]),
+    ).toEqual([fixtures.validSave]);
+  });
+
+  it('A moment that starts before 0:00 is trimmed to start at 0:00', () => {
+    expect(
+      highlightReel.trimToRecording(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, -1_000, 3_000),
+      ]),
+    ).toEqual([rawMoment(PlayType.Goal, 0, 3_000)]);
+  });
+
+  it('A moment that ends after the recording is trimmed to end with it', () => {
+    expect(
+      highlightReel.trimToRecording(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, 598_000, 602_000),
+      ]),
+    ).toEqual([rawMoment(PlayType.Goal, 598_000, 600_000)]);
+  });
+
+  it('Trimming does not change the input moments', () => {
+    const moments = [rawMoment(PlayType.Goal, -1_000, 602_000)];
+    const before = structuredClone(moments);
+    const trimmed = highlightReel.trimToRecording(
+      fixtures.recording10min,
+      moments,
+    );
+    trimmed[0].players.push('p2');
+    expect(moments).toEqual(before);
+  });
 });
 
 describe('mergeRawMoments', () => {
   it('An empty input list yields an empty result', () => {
-    expect(mergeRawMoments([])).toEqual([]);
+    expect(highlightReel.mergeRawMoments([])).toEqual([]);
   });
 
   it('A single moment is unchanged', () => {
-    expect(mergeRawMoments([fixtures.validSave])).toEqual([fixtures.validSave]);
+    expect(highlightReel.mergeRawMoments([fixtures.validSave])).toEqual([
+      fixtures.validSave,
+    ]);
   });
 
   it('Overlapping same-type moments become one play', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([fixtures.overlapGoalA, fixtures.overlapGoalB]),
+        highlightReel.mergeRawMoments([
+          fixtures.overlapGoalA,
+          fixtures.overlapGoalB,
+        ]),
       ),
     ).toEqual([
       rawMoment(PlayType.Goal, 58_000, 65_000, {
@@ -237,7 +297,7 @@ describe('mergeRawMoments', () => {
   it('A same-type moment fully inside another is merged into it', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           rawMoment(PlayType.Goal, 10_000, 50_000, { confidence: 0.7 }),
           rawMoment(PlayType.Goal, 20_000, 30_000, {
             players: ['p2'],
@@ -256,7 +316,7 @@ describe('mergeRawMoments', () => {
   it('A chain of same-type moments becomes one play even when only neighbors overlap', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           rawMoment(PlayType.Goal, 10_000, 20_000, { confidence: 0.5 }),
           rawMoment(PlayType.Goal, 18_000, 30_000, {
             players: ['p2'],
@@ -279,7 +339,10 @@ describe('mergeRawMoments', () => {
   it('Input order does not change the result', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([fixtures.overlapGoalB, fixtures.overlapGoalA]),
+        highlightReel.mergeRawMoments([
+          fixtures.overlapGoalB,
+          fixtures.overlapGoalA,
+        ]),
       ),
     ).toEqual([
       rawMoment(PlayType.Goal, 58_000, 65_000, {
@@ -292,7 +355,7 @@ describe('mergeRawMoments', () => {
   it('Same-type moments that touch (gap 0) are one play', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([fixtures.mergeGoalA, fixtures.touchB]),
+        highlightReel.mergeRawMoments([fixtures.mergeGoalA, fixtures.touchB]),
       ),
     ).toEqual([
       rawMoment(PlayType.Goal, 10_000, 30_000, {
@@ -305,7 +368,7 @@ describe('mergeRawMoments', () => {
   it('Same-type moments exactly 1s apart are one play', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([fixtures.mergeGoalA, fixtures.gap1sB]),
+        highlightReel.mergeRawMoments([fixtures.mergeGoalA, fixtures.gap1sB]),
       ),
     ).toEqual([
       rawMoment(PlayType.Goal, 10_000, 30_000, {
@@ -318,7 +381,7 @@ describe('mergeRawMoments', () => {
   it('Same-type moments 0.5s apart are one play', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           rawMoment(PlayType.Save, 10_000, 20_000, {
             players: ['p4'],
             confidence: 0.6,
@@ -340,7 +403,7 @@ describe('mergeRawMoments', () => {
   it('A chain of same-type moments each 1s apart becomes one play', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
           rawMoment(PlayType.Goal, 2_000, 2_500, {
             players: ['p2'],
@@ -372,7 +435,7 @@ describe('mergeRawMoments', () => {
     });
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           longGoal,
           goalInsideLongGoal,
           goalUnder1sAfterLongGoal,
@@ -387,15 +450,14 @@ describe('mergeRawMoments', () => {
   });
 
   it('Same-type moments more than 1s apart stay separate', () => {
-    expect(mergeRawMoments([fixtures.mergeGoalA, fixtures.gap1001B])).toEqual([
-      fixtures.mergeGoalA,
-      fixtures.gap1001B,
-    ]);
+    expect(
+      highlightReel.mergeRawMoments([fixtures.mergeGoalA, fixtures.gap1001B]),
+    ).toEqual([fixtures.mergeGoalA, fixtures.gap1001B]);
   });
 
   it('Different-type moments that overlap never merge', () => {
     expect(
-      mergeRawMoments([
+      highlightReel.mergeRawMoments([
         rawMoment(PlayType.Goal, 10_000, 20_000),
         rawMoment(PlayType.Save, 10_000, 20_000, {
           players: ['p2'],
@@ -414,7 +476,7 @@ describe('mergeRawMoments', () => {
   it('Overlapping same-type moments merge when another type starts between them', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           fixtures.mergeGoalA,
           fixtures.interleaveSave,
           fixtures.interleaveGoalB,
@@ -432,7 +494,7 @@ describe('mergeRawMoments', () => {
   it('Same-type moments within 1s merge when another type starts in the gap', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           fixtures.mergeGoalA,
           fixtures.interleaveGapSave,
           fixtures.interleaveGapGoalB,
@@ -450,7 +512,7 @@ describe('mergeRawMoments', () => {
   it('Input order does not change an interleaved merge', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           fixtures.interleaveGoalB,
           fixtures.interleaveSave,
           fixtures.mergeGoalA,
@@ -468,7 +530,7 @@ describe('mergeRawMoments', () => {
   it('Two interleaved plays of different types each merge into one play', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           rawMoment(PlayType.Goal, 10_000, 20_000, { confidence: 0.6 }),
           rawMoment(PlayType.Save, 12_000, 22_000, {
             players: ['p4'],
@@ -509,14 +571,14 @@ describe('mergeRawMoments', () => {
     }
     Object.freeze(input);
 
-    mergeRawMoments(input);
+    highlightReel.mergeRawMoments(input);
     expect(input).toEqual(original);
   });
 
   it('A moment is compared with the latest play of its type', () => {
     expect(
       ignoringPlayerOrder(
-        mergeRawMoments([
+        highlightReel.mergeRawMoments([
           rawMoment(PlayType.Goal, 0, 1_000, { confidence: 0.5 }),
           rawMoment(PlayType.Goal, 5_000, 6_000, {
             players: ['p2'],
@@ -543,13 +605,17 @@ describe('mergeRawMoments', () => {
       confidence: 0.7,
     });
     expect(
-      mergeRawMoments([fixtures.mergeGoalA, gapSave, fixtures.gap1001B]),
+      highlightReel.mergeRawMoments([
+        fixtures.mergeGoalA,
+        gapSave,
+        fixtures.gap1001B,
+      ]),
     ).toEqual([fixtures.mergeGoalA, gapSave, fixtures.gap1001B]);
   });
 
   it('Different-type moments within 1s never merge', () => {
     expect(
-      mergeRawMoments([
+      highlightReel.mergeRawMoments([
         rawMoment(PlayType.Goal, 10_000, 20_000),
         rawMoment(PlayType.Save, 20_500, 28_000, {
           players: ['p2'],
@@ -569,13 +635,17 @@ describe('mergeRawMoments', () => {
 describe('convertToClips', () => {
   it('An empty input list yields an empty result', () => {
     expect(
-      convertToClips(fixtures.recording10min, [], DEFAULT_REEL_SETTINGS),
+      highlightReel.convertToClips(
+        fixtures.recording10min,
+        [],
+        DEFAULT_REEL_SETTINGS,
+      ),
     ).toEqual([]);
   });
 
   it('Pads 2s before and 3s after a mid-recording moment', () => {
     expect(
-      convertToClips(
+      highlightReel.convertToClips(
         fixtures.recording10min,
         [fixtures.validSave],
         DEFAULT_REEL_SETTINGS,
@@ -590,7 +660,7 @@ describe('convertToClips', () => {
 
   it('Padding before a moment near 0:00 clamps to 0:00', () => {
     expect(
-      convertToClips(
+      highlightReel.convertToClips(
         fixtures.recording10min,
         [
           rawMoment(PlayType.Save, 1_000, 4_000, {
@@ -610,7 +680,7 @@ describe('convertToClips', () => {
 
   it('A moment that starts at 0:00 stays at 0:00', () => {
     expect(
-      convertToClips(
+      highlightReel.convertToClips(
         fixtures.recording10min,
         [rawMoment(PlayType.Goal, 0, 3_000)],
         DEFAULT_REEL_SETTINGS,
@@ -620,7 +690,7 @@ describe('convertToClips', () => {
 
   it('Padding after a moment near the end clamps to the recording end', () => {
     expect(
-      convertToClips(
+      highlightReel.convertToClips(
         fixtures.recording10min,
         [rawMoment(PlayType.Goal, 596_000, 599_000, { confidence: 0.88 })],
         DEFAULT_REEL_SETTINGS,
@@ -634,7 +704,7 @@ describe('convertToClips', () => {
 
   it('A moment that ends at the recording end stays there', () => {
     expect(
-      convertToClips(
+      highlightReel.convertToClips(
         fixtures.recording10min,
         [rawMoment(PlayType.Goal, 595_000, 600_000, { confidence: 0.88 })],
         DEFAULT_REEL_SETTINGS,
@@ -648,7 +718,7 @@ describe('convertToClips', () => {
 
   it('Each clip gets its own copy of the players list', () => {
     const moment = rawMoment(PlayType.Goal, 100_000, 104_000);
-    const [result] = convertToClips(
+    const [result] = highlightReel.convertToClips(
       fixtures.recording10min,
       [moment],
       DEFAULT_REEL_SETTINGS,
@@ -659,7 +729,7 @@ describe('convertToClips', () => {
 
   it('Padding after a moment in a 1ms recording clamps to 1ms', () => {
     expect(
-      convertToClips(
+      highlightReel.convertToClips(
         recordingLasting(1),
         [rawMoment(PlayType.Goal, 0, 1)],
         DEFAULT_REEL_SETTINGS,
@@ -669,15 +739,17 @@ describe('convertToClips', () => {
 
   it('Ids number the clips from 0 in input order, even when starts clamp to the same 0:00', () => {
     expect(
-      convertToClips(
-        fixtures.recording10min,
-        [
-          rawMoment(PlayType.Save, 1_000, 4_000),
-          rawMoment(PlayType.Goal, 500, 3_000),
-          rawMoment(PlayType.Skill, 300_000, 304_000),
-        ],
-        DEFAULT_REEL_SETTINGS,
-      ).map((c) => [c.startMs, c.id]),
+      highlightReel
+        .convertToClips(
+          fixtures.recording10min,
+          [
+            rawMoment(PlayType.Save, 1_000, 4_000),
+            rawMoment(PlayType.Goal, 500, 3_000),
+            rawMoment(PlayType.Skill, 300_000, 304_000),
+          ],
+          DEFAULT_REEL_SETTINGS,
+        )
+        .map((c) => [c.startMs, c.id]),
     ).toEqual([
       [0, 'clip-0'],
       [0, 'clip-1'],
@@ -686,10 +758,14 @@ describe('convertToClips', () => {
   });
   it('Pads by the given settings instead of the defaults', () => {
     expect(
-      convertToClips(fixtures.recording10min, [fixtures.validSave], {
-        prePadMs: 5_000,
-        postPadMs: 0,
-      }),
+      highlightReel.convertToClips(
+        fixtures.recording10min,
+        [fixtures.validSave],
+        {
+          prePadMs: 5_000,
+          postPadMs: 0,
+        },
+      ),
     ).toEqual([
       clip('clip-0', PlayType.Save, 115_000, 124_000, {
         players: ['p5'],
@@ -701,7 +777,9 @@ describe('convertToClips', () => {
 
 describe('selectClips', () => {
   it('An empty input list yields no selected clips and no candidates', () => {
-    expect(selectClips([], [], DEFAULT_REEL_SETTINGS.capMs)).toEqual({
+    expect(
+      highlightReel.selectClips([], [], DEFAULT_REEL_SETTINGS.capMs),
+    ).toEqual({
       selected: [],
       candidates: [],
     });
@@ -709,7 +787,7 @@ describe('selectClips', () => {
 
   it('Clips that sum to exactly the 60s cap are all included', () => {
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [],
         [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -722,7 +800,7 @@ describe('selectClips', () => {
 
   it('A clip just over the remaining time is skipped for a later one that fits', () => {
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [],
         [
           fixtures.goal20sA,
@@ -740,7 +818,7 @@ describe('selectClips', () => {
 
   it('A clip longer than the cap is skipped and later clips can still fill the reel', () => {
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [],
         [fixtures.overCapClip, fixtures.underCapSkill],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -769,7 +847,7 @@ describe('selectClips', () => {
     });
 
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [],
         [nearMiss, skill, goal, save],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -786,7 +864,9 @@ describe('selectClips', () => {
       players: ['p2'],
     });
 
-    expect(selectClips([], [low, high], DEFAULT_REEL_SETTINGS.capMs)).toEqual({
+    expect(
+      highlightReel.selectClips([], [low, high], DEFAULT_REEL_SETTINGS.capMs),
+    ).toEqual({
       selected: [high],
       candidates: [low],
     });
@@ -794,7 +874,7 @@ describe('selectClips', () => {
 
   it('Ties in play type and confidence keep input order', () => {
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [],
         [fixtures.bigPlay40sSecond, fixtures.bigPlay40sFirst],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -808,7 +888,7 @@ describe('selectClips', () => {
   it('Clips that touch end to start do not overlap and are both selected', () => {
     expect(fixtures.goal20sA.endMs).toBe(fixtures.laterSkill.startMs);
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [],
         [fixtures.goal20sA, fixtures.laterSkill],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -821,7 +901,7 @@ describe('selectClips', () => {
 
   it('A clip that overlaps an already selected clip is skipped', () => {
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [],
         [fixtures.goal20sA, fixtures.overlappingSave, fixtures.laterSkill],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -834,7 +914,7 @@ describe('selectClips', () => {
 
   it('Fills up to the given cap instead of the default', () => {
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [],
         [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
         40_000,
@@ -846,7 +926,7 @@ describe('selectClips', () => {
   });
   it('Kept clips count against the cap', () => {
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [fixtures.goal20sA],
         [fixtures.goal20sB, fixtures.save20s, fixtures.skill10s],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -859,7 +939,7 @@ describe('selectClips', () => {
 
   it('A clip that overlaps a kept clip is skipped', () => {
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [fixtures.goal20sA],
         [fixtures.overlappingSave, fixtures.laterSkill],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -873,7 +953,11 @@ describe('selectClips', () => {
   it('A kept clip is never dropped to make room for a higher-priority clip', () => {
     const goal55s = clip('clip-goal', PlayType.Goal, 200_000, 255_000);
     expect(
-      selectClips([fixtures.skill10s], [goal55s], DEFAULT_REEL_SETTINGS.capMs),
+      highlightReel.selectClips(
+        [fixtures.skill10s],
+        [goal55s],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
     ).toEqual({
       selected: [fixtures.skill10s],
       candidates: [goal55s],
@@ -882,7 +966,7 @@ describe('selectClips', () => {
   it('Kept clips already over the cap all stay, and every other clip becomes a candidate', () => {
     const shortSkill = clip('clip-skill', PlayType.Skill, 300_000, 301_000);
     expect(
-      selectClips(
+      highlightReel.selectClips(
         [fixtures.bigPlay40sFirst, fixtures.bigPlay40sSecond],
         [shortSkill],
         DEFAULT_REEL_SETTINGS.capMs,
@@ -897,14 +981,14 @@ describe('selectClips', () => {
     const keptClips = [fixtures.goal20sA];
     const clips = [fixtures.save20s, fixtures.goal20sB];
     const before = structuredClone({ keptClips, clips });
-    selectClips(keptClips, clips, DEFAULT_REEL_SETTINGS.capMs);
+    highlightReel.selectClips(keptClips, clips, DEFAULT_REEL_SETTINGS.capMs);
     expect({ keptClips, clips }).toEqual(before);
   });
 });
 
 describe('buildReelFromRawMoments', () => {
   it('A full game of raw moments becomes a sorted reel within the 60s cap', () => {
-    const reel = buildReelFromRawMoments(
+    const reel = highlightReel.buildReelFromRawMoments(
       seedGame.recording,
       seedGame.rawMoments,
     );
@@ -920,7 +1004,9 @@ describe('buildReelFromRawMoments', () => {
   });
 
   it('An empty input list yields an empty reel under the default cap', () => {
-    expect(buildReelFromRawMoments(fixtures.recording10min, [])).toEqual({
+    expect(
+      highlightReel.buildReelFromRawMoments(fixtures.recording10min, []),
+    ).toEqual({
       clips: [],
       candidates: [],
       rejected: [],
@@ -930,7 +1016,7 @@ describe('buildReelFromRawMoments', () => {
 
   it('Candidates are ranked by play type, then confidence', () => {
     expect(
-      buildReelFromRawMoments(fixtures.recording10min, [
+      highlightReel.buildReelFromRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.NearMiss, 100_000, 110_000, {
           players: ['p12'],
           confidence: 0.99,
@@ -965,7 +1051,7 @@ describe('buildReelFromRawMoments', () => {
     const goalWithoutPlayers = withoutField('players');
     const overlappingGoal = rawMoment(PlayType.Goal, 190_000, 195_000);
     expect(
-      buildReelFromRawMoments(fixtures.recording10min, [
+      highlightReel.buildReelFromRawMoments(fixtures.recording10min, [
         goalWithoutPlayers,
         overlappingGoal,
       ]),
@@ -979,7 +1065,7 @@ describe('buildReelFromRawMoments', () => {
 
   it('Moments with NaN times or confidence are skipped and the rest of the reel is built', () => {
     expect(
-      buildReelFromRawMoments(fixtures.recording10min, [
+      highlightReel.buildReelFromRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, NaN, 50_000),
         rawMoment(PlayType.Goal, 300_000, NaN),
         rawMoment(PlayType.Goal, 400_000, 404_000, { confidence: NaN }),
@@ -1002,7 +1088,7 @@ describe('buildReelFromRawMoments', () => {
     'A recording with a durationMs of %p throws',
     (durationMs) => {
       expect(() =>
-        buildReelFromRawMoments(recordingLasting(durationMs), [
+        highlightReel.buildReelFromRawMoments(recordingLasting(durationMs), [
           fixtures.validSave,
         ]),
       ).toThrow(RangeError);
@@ -1010,28 +1096,30 @@ describe('buildReelFromRawMoments', () => {
   );
 
   it('A recording with a NaN durationMs throws even with no moments', () => {
-    expect(() => buildReelFromRawMoments(recordingLasting(NaN), [])).toThrow(
-      RangeError,
-    );
+    expect(() =>
+      highlightReel.buildReelFromRawMoments(recordingLasting(NaN), []),
+    ).toThrow(RangeError);
   });
 
   it('A 1ms recording is valid and builds a 1ms clip', () => {
     expect(
-      buildReelFromRawMoments(recordingLasting(1), [
+      highlightReel.buildReelFromRawMoments(recordingLasting(1), [
         rawMoment(PlayType.Goal, 0, 1),
       ]).clips,
     ).toEqual([clip('clip-0', PlayType.Goal, 0, 1)]);
   });
 
   it('The error names the invalid durationMs', () => {
-    expect(() => buildReelFromRawMoments(recordingLasting(NaN), [])).toThrow(
+    expect(() =>
+      highlightReel.buildReelFromRawMoments(recordingLasting(NaN), []),
+    ).toThrow(
       'Expected recording.durationMs to be a finite number above 0, got NaN',
     );
   });
 
   it('Selected clips are sorted by start time', () => {
     expect(
-      buildReelFromRawMoments(fixtures.recording10min, [
+      highlightReel.buildReelFromRawMoments(fixtures.recording10min, [
         rawMoment(PlayType.Goal, 100_000, 104_000),
         rawMoment(PlayType.Save, 10_000, 14_000, {
           players: ['p5'],
@@ -1054,7 +1142,7 @@ describe('buildReelFromRawMoments', () => {
 
   it('Builds with the given cap and padding and reports that cap', () => {
     expect(
-      buildReelFromRawMoments(
+      highlightReel.buildReelFromRawMoments(
         fixtures.recording10min,
         [
           rawMoment(PlayType.Goal, 100_000, 120_000),
@@ -1074,7 +1162,7 @@ describe('buildReelFromRawMoments', () => {
 
   it('Fills past 60s when the cap is above the default', () => {
     expect(
-      buildReelFromRawMoments(
+      highlightReel.buildReelFromRawMoments(
         fixtures.recording10min,
         [
           rawMoment(PlayType.Goal, 100_000, 115_000),
@@ -1101,7 +1189,7 @@ describe('buildReelFromRawMoments', () => {
     'A capMs of %p throws a RangeError even with no moments',
     (capMs) => {
       const build = () =>
-        buildReelFromRawMoments(fixtures.recording10min, [], {
+        highlightReel.buildReelFromRawMoments(fixtures.recording10min, [], {
           ...DEFAULT_REEL_SETTINGS,
           capMs,
         });
@@ -1121,7 +1209,7 @@ describe('buildReelFromRawMoments', () => {
     'A %s of %p throws a RangeError even with no moments',
     (field, value) => {
       const build = () =>
-        buildReelFromRawMoments(fixtures.recording10min, [], {
+        highlightReel.buildReelFromRawMoments(fixtures.recording10min, [], {
           ...DEFAULT_REEL_SETTINGS,
           [field]: value,
         });
@@ -1134,16 +1222,36 @@ describe('buildReelFromRawMoments', () => {
 
   it('Zero padding is valid and leaves the moment unpadded', () => {
     expect(
-      buildReelFromRawMoments(fixtures.recording10min, [fixtures.validSave], {
-        ...DEFAULT_REEL_SETTINGS,
-        prePadMs: 0,
-        postPadMs: 0,
-      }).clips,
+      highlightReel.buildReelFromRawMoments(
+        fixtures.recording10min,
+        [fixtures.validSave],
+        {
+          ...DEFAULT_REEL_SETTINGS,
+          prePadMs: 0,
+          postPadMs: 0,
+        },
+      ).clips,
     ).toEqual([
       clip('clip-0', PlayType.Save, 120_000, 124_000, {
         players: ['p5'],
         confidence: 0.92,
       }),
     ]);
+  });
+
+  it('A goal that runs past the end of the recording is trimmed and kept, not dropped', () => {
+    expect(
+      highlightReel.buildReelFromRawMoments(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, 598_000, 602_000),
+      ]).clips,
+    ).toEqual([clip('clip-0', PlayType.Goal, 596_000, 600_000)]);
+  });
+
+  it('A moment entirely before 0:00 never becomes a clip', () => {
+    expect(
+      highlightReel.buildReelFromRawMoments(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, -10_000, -5_000),
+      ]),
+    ).toEqual({ clips: [], candidates: [], rejected: [], capMs: 60_000 });
   });
 });

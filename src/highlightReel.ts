@@ -50,11 +50,15 @@ function hasValidPlayers(
   );
 }
 
-function fitsInRecording(
+function overlapsRecording(
   moment: Pick<RawMoment, 'startMs' | 'endMs'>,
   recording: Recording,
 ): boolean {
-  return moment.startMs < moment.endMs && moment.endMs <= recording.durationMs;
+  return (
+    moment.startMs < moment.endMs &&
+    moment.endMs > 0 &&
+    moment.startMs < recording.durationMs
+  );
 }
 
 function hasValidConfidence(moment: Pick<RawMoment, 'confidence'>): boolean {
@@ -98,10 +102,22 @@ export function filterRawMoments(
       moment.recordingId === recording.id &&
       hasFiniteNumbers(moment) &&
       hasValidPlayers(moment) &&
-      fitsInRecording(moment, recording) &&
+      overlapsRecording(moment, recording) &&
       hasValidConfidence(moment) &&
       isKnownPlayType(moment.type),
   );
+}
+
+export function trimToRecording(
+  recording: Recording,
+  rawMoments: RawMoment[],
+): RawMoment[] {
+  return rawMoments.map((moment) => ({
+    ...moment,
+    startMs: Math.max(moment.startMs, 0),
+    endMs: Math.min(moment.endMs, recording.durationMs),
+    players: [...moment.players],
+  }));
 }
 
 export function mergeRawMoments(rawMoments: RawMoment[]): RawMoment[] {
@@ -204,7 +220,8 @@ export function buildReelFromRawMoments(
   assertValidRecording(recording);
   assertValidSettings(settings);
   const filteredMoments = filterRawMoments(recording, rawMoments);
-  const mergedMoments = mergeRawMoments(filteredMoments);
+  const trimmedMoments = trimToRecording(recording, filteredMoments);
+  const mergedMoments = mergeRawMoments(trimmedMoments);
   const clips = convertToClips(recording, mergedMoments, settings);
   const { selected, candidates } = selectClips([], clips, settings.capMs);
   const sortedSelected = [...selected].sort((a, b) => a.startMs - b.startMs);
