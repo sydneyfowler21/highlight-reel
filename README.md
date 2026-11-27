@@ -30,14 +30,14 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 - Every reel the API returns has the body `{ id, recordingId, shareable, clips, candidates, rejected, capMs }` and sends its version as an `ETag` header: an integer that starts at 1, in quotes, like `"1"`. `shareable` is worked out by `isShareable` when the reel is read and is never stored.
 - `GET /reels/:reelId` returns that reel. An unknown reel id returns 404 with reason `reel-not-found`.
 - `GET /recordings/:recordingId/reel` returns the recording's latest reel: the one created most recently, or, when two were created in the same millisecond, the one inserted last. An unknown recording returns 404 with reason `recording-not-found`, and a recording with no reel returns 404 with reason `reel-not-found`.
-- `POST /reels/:reelId/clips/:clipId/approve` approves a clip in the reel. The request must send the reel's `ETag` in `If-Match`. The approved reel is saved with a conditional save that adds 1 to the version only if nobody saved first, and the response is 200 with the new reel and its new `ETag`.
+- `POST /reels/:reelId/clips/:clipId/approve` approves a clip in the reel, and `POST /reels/:reelId/clips/:clipId/reject` rejects one and backfills the leftover time, as the Library rules describe. The request must send the reel's `ETag` in `If-Match`. The new reel is saved with a conditional save that adds 1 to the version only if nobody saved first, and the response is 200 with the new reel and its new `ETag`.
 - A review request is checked in this order, and the first failure is the response:
   1. No `If-Match`: 428, reason `if-match-required`.
   2. Unknown reel id: 404, reason `reel-not-found`.
   3. `If-Match` is not exactly the reel's current `ETag`: 412, reason `stale-version`. A malformed header, such as `W/"1"` or `*`, is not the `ETag` either, so it gets a 412 too.
   4. The review action throws a `ReviewError`: 404 for `unknown-id`, otherwise 409, with the error's own reason. Any other error is a bug, so it is not caught and the response is 500.
   5. The conditional save changes no row, because someone saved after step 3: 412, reason `stale-version`, with the reel read again so it is current.
-- An error response is `{ reason, message, reel }`. `reason` is a fixed string a UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag`. It is left out, with no `ETag`, for a 428 and for a 404 for an unknown reel or recording.
+- An error response is `{ reason, message, reel }`. `reason` is a fixed string a UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag`. It is left out, with no `ETag`, for a 428 and for a 404 for an unknown reel or recording. An unexpected error is a 500 with reason `internal-error` and a generic message, never a reel or details from the error. The error itself is logged on the server.
 
 ## How to run it
 
@@ -372,7 +372,7 @@ Intent lives in names, structure, and tests instead: fixtures are named for the 
 
 ## Plan
 
-Today this is a library that builds a reel from one game's raw moments. The plan turns it into a small service a coach's UI can call: it stores reels, serves a reel by id, and lets the coach review the reel one clip at a time. A milestone is done when tests, typecheck, lint, and format pass, and the behavior it finishes is moved into Rules.
+This started as a library that builds a reel from one game's raw moments. The plan turned it into a small service a coach's UI can call: it stores reels, serves a reel by id, and lets the coach review the reel one clip at a time. Milestones 0 to 3 are done. A milestone is done when tests, typecheck, lint, and format pass, and the behavior it finishes is moved into Rules.
 
 ### Decisions
 
@@ -421,11 +421,11 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 
 - [x] `approve`, `reject` with backfill, and `ReviewError`, with the review rules now in Rules.
 
-#### 3. Review endpoints
+#### 3. Review endpoints (done)
 
 - [x] `POST /reels/:reelId/clips/:clipId/approve` loads the reel, applies `approve`, and saves with the conditional `UPDATE ... WHERE version = ?` from Database. Errors follow the order in Rules. On success, it returns the new reel with its new `ETag`.
-- [ ] `POST /reels/:reelId/clips/:clipId/reject` does the same with `reject`.
-- [ ] One test for each step of the order, for each endpoint, plus one where a stale `If-Match` names a clip that has since been approved and gets a 412, not a 409.
+- [x] `POST /reels/:reelId/clips/:clipId/reject` does the same with `reject`.
+- [x] One test for each step of the order, for each endpoint, plus one where a stale `If-Match` names a clip that has since been approved and gets a 412, not a 409.
 
 #### Later, not planned yet
 
