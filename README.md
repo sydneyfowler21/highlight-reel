@@ -24,7 +24,6 @@ This project turns a youth-sports game recording and a messy list of auto-detect
 - A backfilled clip starts as pending and keeps the id it was built with, and the reel stays sorted by start time.
 - Every candidate is pending. A clip is approved only while it is in the reel, and an approved clip never leaves it.
 - Throw a `ReviewError`, a `RangeError` whose message names the id, when the id is not in the reel's clips, candidates, or rejected clips (`unknown-id`); when the id was already rejected (`already-rejected`); when the id belongs to a candidate that is not in the reel (`not-in-reel`); or when the clip is already approved, whether the action is approve or reject (`already-approved`). The error's `reason` holds that string, so the API can choose a status code without parsing the message.
-- A clip in the reel whose status is neither pending nor approved can only come from stored data that does not fit the `Reel` type. Approve and reject throw a plain `Error` for it, not a `ReviewError`, so the API answers 500 instead of saving a reel that did not change.
 
 ### API
 
@@ -389,7 +388,7 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 
 ### Database
 
-- **Tables.** `recordings` has an id and a duration. `reels` has a `seq`, an id, a recording id, a version, a created-at time, and a `reel` column that holds the library's `Reel` as JSON. Storing the whole `Reel` in one column means a change to the `Reel` type does not need a schema change. Stored reels that no longer fit the new type still need a data migration, or a reseed while the seed command is the only source of data. A review of a reel that does not fit fails with a 500 rather than saving.
+- **Tables.** `recordings` has an id and a duration. `reels` has a `seq`, an id, a recording id, a version, a created-at time, and a `reel` column that holds the library's `Reel` as JSON. Storing the whole `Reel` in one column means a change to the `Reel` type does not need a schema change. Stored reels that no longer fit the new type still need a data migration, or a reseed while the seed command is the only source of data.
 - **Reel ids are random UUIDs** from `crypto.randomUUID()`. They appear in URLs, and counting ids would let anyone guess other reels.
 - **The version is an integer that starts at 1.** Every save adds 1. The `ETag` is the version in quotes, like `"3"`, as HTTP requires.
 - **A save only succeeds if nobody saved first.** It runs `UPDATE reels SET reel = ?, version = version + 1 WHERE id = ? AND version = ?`, and if no row changes, the API returns 412. Checking `If-Match` first and saving in a separate step would let two clicks both pass the check.
