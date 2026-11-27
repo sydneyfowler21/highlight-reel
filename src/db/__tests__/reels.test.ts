@@ -34,6 +34,25 @@ describe('saveReel', () => {
     expect(findReel(db, stored.id)).toEqual(stored);
   });
 
+  it('changes nothing and returns undefined when the expected version is ahead of the stored one', () => {
+    const { db, stored } = dbWithSeedReel();
+
+    const saved = saveReel(db, stored.id, 2, approvedFirstClip);
+
+    expect(saved).toBeUndefined();
+    expect(findReel(db, stored.id)).toEqual(stored);
+  });
+
+  it('adds 1 to the version on each save in a row', () => {
+    const { db, stored } = dbWithSeedReel();
+    const approvedTwoClips = approve(approvedFirstClip, 'clip-1');
+
+    saveReel(db, stored.id, 1, approvedFirstClip);
+    const secondSave = saveReel(db, stored.id, 2, approvedTwoClips);
+
+    expect(secondSave).toMatchObject({ version: 3, reel: approvedTwoClips });
+  });
+
   it('lets only the first of two saves from the same version succeed', () => {
     const { db, stored } = dbWithSeedReel();
     const approvedSecondClip = approve(seedGame.expectedReel, 'clip-1');
