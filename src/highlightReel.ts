@@ -50,11 +50,15 @@ function hasValidPlayers(
   );
 }
 
-function fitsInRecording(
+function overlapsRecording(
   moment: Pick<RawMoment, 'startMs' | 'endMs'>,
   recording: Recording,
 ): boolean {
-  return moment.startMs < moment.endMs && moment.endMs <= recording.durationMs;
+  return (
+    moment.startMs < moment.endMs &&
+    moment.endMs > 0 &&
+    moment.startMs < recording.durationMs
+  );
 }
 
 function hasValidConfidence(moment: Pick<RawMoment, 'confidence'>): boolean {
@@ -98,7 +102,7 @@ export function filterRawMoments(
       moment.recordingId === recording.id &&
       hasFiniteNumbers(moment) &&
       hasValidPlayers(moment) &&
-      fitsInRecording(moment, recording) &&
+      overlapsRecording(moment, recording) &&
       hasValidConfidence(moment) &&
       isKnownPlayType(moment.type),
   );

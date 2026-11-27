@@ -110,12 +110,32 @@ describe('filterRawMoments', () => {
     ).toEqual([]);
   });
 
-  it('A moment that ends after the recording is skipped', () => {
-    expect(
-      filterRawMoments(fixtures.recording10min, [
-        rawMoment(PlayType.Goal, 598_000, 601_000, { confidence: 0.9 }),
-      ]),
-    ).toEqual([]);
+  it('A moment that starts inside the recording and ends after it is kept', () => {
+    const moment = rawMoment(PlayType.Goal, 598_000, 601_000);
+    expect(filterRawMoments(fixtures.recording10min, [moment])).toEqual([
+      moment,
+    ]);
+  });
+
+  it.each([
+    [-10_000, -5_000],
+    [-5_000, 0],
+  ])(
+    'A moment from %p to %p, ending at or before 0:00, is skipped',
+    (startMs, endMs) => {
+      expect(
+        filterRawMoments(fixtures.recording10min, [
+          rawMoment(PlayType.Goal, startMs, endMs),
+        ]),
+      ).toEqual([]);
+    },
+  );
+
+  it('A moment that starts before 0:00 and ends inside the recording is kept', () => {
+    const moment = rawMoment(PlayType.Goal, -1_000, 3_000);
+    expect(filterRawMoments(fixtures.recording10min, [moment])).toEqual([
+      moment,
+    ]);
   });
 
   it.each(['startMs', 'endMs'] as const)(
@@ -200,16 +220,6 @@ describe('filterRawMoments', () => {
       filterRawMoments(fixtures.recording10min, [withoutField('recordingId')]),
     ).toEqual([]);
   });
-  it.failing(
-    'Known bug: a moment that starts before 0:00 is kept and can become a clip of zero or negative length',
-    () => {
-      expect(
-        filterRawMoments(fixtures.recording10min, [
-          rawMoment(PlayType.Goal, -10_000, -5_000),
-        ]),
-      ).toEqual([]);
-    },
-  );
 });
 
 describe('mergeRawMoments', () => {
@@ -1145,5 +1155,21 @@ describe('buildReelFromRawMoments', () => {
         confidence: 0.92,
       }),
     ]);
+  });
+
+  it('A goal that runs past the end of the recording is clamped to the recording and kept, not dropped', () => {
+    expect(
+      buildReelFromRawMoments(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, 598_000, 602_000),
+      ]).clips,
+    ).toEqual([clip('clip-0', PlayType.Goal, 596_000, 600_000)]);
+  });
+
+  it('A moment entirely before 0:00 never becomes a clip', () => {
+    expect(
+      buildReelFromRawMoments(fixtures.recording10min, [
+        rawMoment(PlayType.Goal, -10_000, -5_000),
+      ]),
+    ).toEqual({ clips: [], candidates: [], rejected: [], capMs: 60_000 });
   });
 });
