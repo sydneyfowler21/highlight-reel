@@ -691,7 +691,7 @@ describe('convertToClips', () => {
 
 describe('selectClips', () => {
   it('An empty input list yields no selected clips and no candidates', () => {
-    expect(selectClips([], DEFAULT_REEL_SETTINGS.capMs)).toEqual({
+    expect(selectClips([], [], DEFAULT_REEL_SETTINGS.capMs)).toEqual({
       selected: [],
       candidates: [],
     });
@@ -700,6 +700,7 @@ describe('selectClips', () => {
   it('Clips that sum to exactly the 60s cap are all included', () => {
     expect(
       selectClips(
+        [],
         [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
         DEFAULT_REEL_SETTINGS.capMs,
       ),
@@ -712,6 +713,7 @@ describe('selectClips', () => {
   it('A clip just over the remaining time is skipped for a later one that fits', () => {
     expect(
       selectClips(
+        [],
         [
           fixtures.goal20sA,
           fixtures.goal20sB,
@@ -729,6 +731,7 @@ describe('selectClips', () => {
   it('A clip longer than the cap is skipped and later clips can still fill the reel', () => {
     expect(
       selectClips(
+        [],
         [fixtures.overCapClip, fixtures.underCapSkill],
         DEFAULT_REEL_SETTINGS.capMs,
       ),
@@ -756,7 +759,11 @@ describe('selectClips', () => {
     });
 
     expect(
-      selectClips([nearMiss, skill, goal, save], DEFAULT_REEL_SETTINGS.capMs),
+      selectClips(
+        [],
+        [nearMiss, skill, goal, save],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
     ).toEqual({
       selected: [goal, save],
       candidates: [skill, nearMiss],
@@ -769,7 +776,7 @@ describe('selectClips', () => {
       players: ['p2'],
     });
 
-    expect(selectClips([low, high], DEFAULT_REEL_SETTINGS.capMs)).toEqual({
+    expect(selectClips([], [low, high], DEFAULT_REEL_SETTINGS.capMs)).toEqual({
       selected: [high],
       candidates: [low],
     });
@@ -778,6 +785,7 @@ describe('selectClips', () => {
   it('Ties in play type and confidence keep input order', () => {
     expect(
       selectClips(
+        [],
         [fixtures.bigPlay40sSecond, fixtures.bigPlay40sFirst],
         DEFAULT_REEL_SETTINGS.capMs,
       ),
@@ -791,6 +799,7 @@ describe('selectClips', () => {
     expect(fixtures.goal20sA.endMs).toBe(fixtures.laterSkill.startMs);
     expect(
       selectClips(
+        [],
         [fixtures.goal20sA, fixtures.laterSkill],
         DEFAULT_REEL_SETTINGS.capMs,
       ),
@@ -803,6 +812,7 @@ describe('selectClips', () => {
   it('A clip that overlaps an already selected clip is skipped', () => {
     expect(
       selectClips(
+        [],
         [fixtures.goal20sA, fixtures.overlappingSave, fixtures.laterSkill],
         DEFAULT_REEL_SETTINGS.capMs,
       ),
@@ -815,12 +825,48 @@ describe('selectClips', () => {
   it('Fills up to the given cap instead of the default', () => {
     expect(
       selectClips(
+        [],
         [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
         40_000,
       ),
     ).toEqual({
       selected: [fixtures.goal20sA, fixtures.goal20sB],
       candidates: [fixtures.save20s],
+    });
+  });
+  it('Kept clips count against the cap', () => {
+    expect(
+      selectClips(
+        [fixtures.goal20sA],
+        [fixtures.goal20sB, fixtures.save20s, fixtures.skill10s],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
+    ).toEqual({
+      selected: [fixtures.goal20sA, fixtures.goal20sB, fixtures.save20s],
+      candidates: [fixtures.skill10s],
+    });
+  });
+
+  it('A clip that overlaps a kept clip is skipped', () => {
+    expect(
+      selectClips(
+        [fixtures.goal20sA],
+        [fixtures.overlappingSave, fixtures.laterSkill],
+        DEFAULT_REEL_SETTINGS.capMs,
+      ),
+    ).toEqual({
+      selected: [fixtures.goal20sA, fixtures.laterSkill],
+      candidates: [fixtures.overlappingSave],
+    });
+  });
+
+  it('A kept clip is never dropped to make room for a higher-priority clip', () => {
+    const goal55s = clip('clip-goal', PlayType.Goal, 200_000, 255_000);
+    expect(
+      selectClips([fixtures.skill10s], [goal55s], DEFAULT_REEL_SETTINGS.capMs),
+    ).toEqual({
+      selected: [fixtures.skill10s],
+      candidates: [goal55s],
     });
   });
 });

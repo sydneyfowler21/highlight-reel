@@ -157,41 +157,41 @@ export function convertToClips(
   });
 }
 
-export function selectClips(clips: Clip[], capMs: number): ClipSelection {
+function overlaps(a: Clip, b: Clip): boolean {
+  return a.startMs < b.endMs && b.startMs < a.endMs;
+}
+
+function lengthMs(clip: Clip): number {
+  return clip.endMs - clip.startMs;
+}
+
+function totalLengthMs(clips: Clip[]): number {
+  return clips.reduce((sum, clip) => sum + lengthMs(clip), 0);
+}
+
+export function selectClips(
+  keptClips: Clip[],
+  clips: Clip[],
+  capMs: number,
+): ClipSelection {
   const clipsByImportance = [...clips].sort(
     (a, b) =>
       consts.PLAY_TYPE_PRIORITY[a.type] - consts.PLAY_TYPE_PRIORITY[b.type] ||
       b.confidence - a.confidence,
   );
-  const selected: Clip[] = [];
+  const selected = [...keptClips];
   const candidates: Clip[] = [];
+  let reelLengthMs = totalLengthMs(keptClips);
 
-  let index = 0;
-  let reelLength = 0;
-  while (reelLength < capMs && index < clipsByImportance.length) {
-    const clipLength =
-      clipsByImportance[index].endMs - clipsByImportance[index].startMs;
-    if (reelLength + clipLength <= capMs) {
-      if (
-        selected.some(
-          (clip) =>
-            clip.startMs < clipsByImportance[index].endMs &&
-            clipsByImportance[index].startMs < clip.endMs,
-        )
-      ) {
-        candidates.push(clipsByImportance[index]);
-      } else {
-        selected.push(clipsByImportance[index]);
-        reelLength += clipLength;
-      }
+  for (const clip of clipsByImportance) {
+    const fits = reelLengthMs + lengthMs(clip) <= capMs;
+    if (fits && !selected.some((chosen) => overlaps(chosen, clip))) {
+      selected.push(clip);
+      reelLengthMs += lengthMs(clip);
     } else {
-      candidates.push(clipsByImportance[index]);
+      candidates.push(clip);
     }
-
-    index++;
   }
-
-  candidates.push(...clipsByImportance.slice(index));
 
   return { selected, candidates };
 }
@@ -206,7 +206,7 @@ export function buildReelFromRawMoments(
   const filteredMoments = filterRawMoments(recording, rawMoments);
   const mergedMoments = mergeRawMoments(filteredMoments);
   const clips = convertToClips(recording, mergedMoments, settings);
-  const { selected, candidates } = selectClips(clips, settings.capMs);
+  const { selected, candidates } = selectClips([], clips, settings.capMs);
   const sortedSelected = [...selected].sort((a, b) => a.startMs - b.startMs);
 
   return {
@@ -218,13 +218,9 @@ export function buildReelFromRawMoments(
 }
 
 export function isShareable(reel: Reel): boolean {
-  const totalMs = reel.clips.reduce(
-    (sum, clip) => sum + clip.endMs - clip.startMs,
-    0,
-  );
   return (
     reel.clips.length > 0 &&
     reel.clips.every((clip) => clip.status === 'approved') &&
-    totalMs <= reel.capMs
+    totalLengthMs(reel.clips) <= reel.capMs
   );
 }
