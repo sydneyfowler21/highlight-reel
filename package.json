@@ -3,6 +3,9 @@
   "description": "Build a 60-second highlight reel from a game recording and auto-detected moments.",
   "private": true,
   "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/sydneyfowler21/highlight-reel"

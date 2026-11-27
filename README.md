@@ -43,7 +43,7 @@ curl -i -X POST -H 'If-Match: "1"' localhost:3000/reels/$REEL/clips/clip-0/appro
 }
 ```
 
-Reject the opening save. Its 7 seconds are backfilled from the candidates, and the approved goal stays in the reel:
+Reject the opening save. The time it frees is backfilled from the candidates, and the approved goal stays in the reel:
 
 ```bash
 curl -i -X POST -H 'If-Match: "2"' localhost:3000/reels/$REEL/clips/clip-0/reject
@@ -63,7 +63,7 @@ The reel is built by a pipeline of small, pure functions:
 
 Then a coach reviews it. Approving a clip locks it in the reel. Rejecting one moves it to the rejected list and runs the select step again over the time it freed. A reel is shareable once every clip in it is approved.
 
-The seed game exercises each of these cases: two overlapping detections of the same goal, a save at 0:01 and a goal at 9:56 that are clamped to the recording's edges, rows that are invalid or belong to another game, and more action than fits in 60 seconds. The fixture is in [`src/fixtures/seedGame.ts`](src/fixtures/seedGame.ts).
+The seed game covers each of these cases: two overlapping detections of the same goal, a save at 0:01 and a goal at 9:56 that are clamped to the recording's edges, rows that are invalid or belong to another game, and more action than fits in 60 seconds. The fixture is in [`src/fixtures/seedGame.ts`](src/fixtures/seedGame.ts).
 
 ## Design decisions
 
@@ -98,7 +98,7 @@ Use Node 22, the version CI runs. Other versions may need `make` and a C++ compi
 
 ## How it was built
 
-I wrote the first version of the pipeline, `buildReel`, by hand. I then refined and extended it with AI agents, in small PRs that work from [AGENTS.md](AGENTS.md) and [SPEC.md](SPEC.md). Each PR names the design options it considered, and every PR got more than one AI review: a backend reviewer, and a QA agent that deliberately breaks the code to check that some test fails. When a review found a recurring problem, the fix became a check rather than a note: a lint rule, a type, or a test. The no-comments rule, the ban on suppressions, and the per-list clip status types all started that way.
+I wrote the first version of the pipeline by hand. I then refined and extended it with AI agents, in small PRs that work from [AGENTS.md](AGENTS.md) and [SPEC.md](SPEC.md). Each PR names the design options it considered, and every PR got more than one AI review: a backend reviewer, and a QA agent that deliberately breaks the code to check that some test fails. When a review found a recurring problem, the fix became a check rather than a note: a lint rule, a type, or a test. The no-comments rule, the ban on suppressions, and the per-list clip status types all started that way.
 
 The code has no comments, on purpose, and the rule that bans them has no escape hatches. Both choices are as much for the AI agents that work on this repo as for people. A comment is guidance nothing enforces: it can quietly go stale, and an agent will read a comment next to a bad fix as a reason to keep the fix rather than correct it. An `eslint-disable` or `@ts-expect-error` does the same harm, telling the next agent that silencing a check is acceptable.
 
