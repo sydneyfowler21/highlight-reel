@@ -59,16 +59,17 @@ That returns 200 with `ETag: "3"`. `clip-0` is now in `rejected`, and `clip-8`, 
 | `GET /reels/:reelId`                        | 200 with the reel and its `ETag`                         | 404 `reel-not-found`                            |
 | `POST /reels/:reelId/clips/:clipId/approve` | 200 with the updated reel and its new `ETag`             | 428, 404, 412, 409 (below)                      |
 | `POST /reels/:reelId/clips/:clipId/reject`  | 200 with the updated, backfilled reel and its new `ETag` | 428, 404, 412, 409 (below)                      |
+| Any other route                             |                                                          | 404 `route-not-found`                           |
 
 A review request must send the reel's `ETag` in `If-Match`, and it is checked in this order:
 
-1. No `If-Match`: 428 `if-match-required`.
+1. No `If-Match`, or an empty one: 428 `if-match-required`.
 2. Unknown reel: 404 `reel-not-found`.
 3. `If-Match` is not the current `ETag`: 412 `stale-version`, even when the clip has since been approved.
 4. The clip can't be reviewed: 404 `unknown-id`, or 409 `already-approved`, `already-rejected`, or `not-in-reel`.
 5. Someone saved in between: 412 `stale-version`.
 
-Every error body is `{ reason, message, reel }`, with the current reel whenever one exists. [SPEC.md](SPEC.md) has every case.
+Every error body has a fixed `reason` and a `message`. A 409, a 412, or a 404 for an unknown clip also carries the current reel as `reel`, with its `ETag`. An unexpected error on any route is a 500 `internal-error` with no details. [SPEC.md](SPEC.md) has every case.
 
 ## How it works
 
@@ -104,7 +105,7 @@ The seed game covers each of these cases: two overlapping detections of the same
 
 **Two reviewers can't overwrite each other.** Every reel carries its version as an `ETag`, HTTP's standard header for labeling one version of a resource, and a review must send that label back in an `If-Match` header. The save is a single conditional `UPDATE` that only writes if the version is still the one the client saw. The slower of two clicks gets a 412 and the current reel instead of overwriting the other change. The version check comes before the review rules, so a stale request about a clip that has since been approved gets a 412, not a 409: that client is acting on a reel it hasn't seen.
 
-**Every error tells the UI what to do next.** An error is `{ reason, message, reel }`: a fixed reason to branch on, a message for people, and the current reel whenever one exists. A UI that retries after a dropped response just shows the reel it gets back. The library reports every repeated action as an error, and the API decides how forgiving to be.
+**Every error tells the UI what to do next.** An error has a fixed reason to branch on and a message for people. When the request reached a real reel, such as a conflict or a stale version, it also carries the current reel. A UI that retries after a dropped response just shows the reel it gets back. The library reports every repeated action as an error, and the API decides how forgiving to be.
 
 **One row per reel.** The whole reel is stored as JSON in one column, so each review is one read and one write, and a change to the `Reel` type needs no schema change. Stored reels that no longer fit a changed type need a data migration. Reel ids are random UUIDs, because they appear in URLs.
 
