@@ -43,7 +43,7 @@ curl -i -X POST -H 'If-Match: "1"' localhost:3000/reels/$REEL/clips/clip-0/appro
 }
 ```
 
-Reject the opening save. Its 7 seconds are backfilled from the candidates, and the approved goal does not move:
+Reject the opening save. Its 7 seconds are backfilled from the candidates, and the approved goal stays in the reel:
 
 ```bash
 curl -i -X POST -H 'If-Match: "2"' localhost:3000/reels/$REEL/clips/clip-0/reject
@@ -61,7 +61,7 @@ The reel is built by a pipeline of small, pure functions:
 4. **Select** fills the cap with goals first, then saves, big plays, skills, and near misses, skipping overlaps and clips that do not fit.
 5. **Sort** puts the reel in game order.
 
-Then a coach reviews it. Approving a clip locks it in place. Rejecting one moves it to the rejected list and runs the select step again over the time it freed. A reel is shareable once every clip in it is approved.
+Then a coach reviews it. Approving a clip locks it in the reel. Rejecting one moves it to the rejected list and runs the select step again over the time it freed. A reel is shareable once every clip in it is approved.
 
 The seed game exercises each of these cases: two overlapping detections of the same goal, a save at 0:01 and a goal at 9:56 that are clamped to the recording's edges, rows that are invalid or belong to another game, and more action than fits in 60 seconds. The fixture is in [`src/fixtures/seedGame.ts`](src/fixtures/seedGame.ts).
 
@@ -73,7 +73,7 @@ The seed game exercises each of these cases: two overlapping detections of the s
 
 **Clip ids never change.** Ids are given once, when the reel is built. A coach acts on a clip, not on a position in the reel, so a backfill that lands earlier in the game can't change which clip an id points to.
 
-**Approved clips are locked.** Nothing a coach does later moves or drops an approved clip. A reject backfills only the time around the clips still in the reel, so one decision can't undo another.
+**Approved clips are locked.** Nothing a coach does later drops an approved clip or changes it. A reject backfills only the time around the clips still in the reel, so one decision can't undo another. The reel is always listed in game order, so a backfill from early in the game appears before a clip approved from the end.
 
 **The types rule out impossible reels.** A reel's clips are pending or approved, its candidates are pending, and its rejected clips are rejected. A reel whose lists disagree doesn't compile, so no code has to check for one.
 
