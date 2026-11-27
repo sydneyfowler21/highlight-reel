@@ -1,6 +1,8 @@
 import { isShareable } from '../highlightReel';
 import { type StoredReel } from '../db/reels';
 
+export type ReelResponse = ReturnType<typeof reelResponse>;
+
 export function reelResponse(stored: StoredReel) {
   return {
     id: stored.id,

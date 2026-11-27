@@ -35,7 +35,7 @@ This project turns a youth-sports game recording and a messy list of auto-detect
   1. No `If-Match`: 428, reason `if-match-required`.
   2. Unknown reel id: 404, reason `reel-not-found`.
   3. `If-Match` is not exactly the reel's current `ETag`: 412, reason `stale-version`. A malformed header, such as `W/"1"` or `*`, is not the `ETag` either, so it gets a 412 too.
-  4. The review action throws a `ReviewError`: 404 for `unknown-id`, otherwise 409, with the error's own reason.
+  4. The review action throws a `ReviewError`: 404 for `unknown-id`, otherwise 409, with the error's own reason. Any other error is a bug, so it is not caught and the response is 500.
   5. The conditional save changes no row, because someone saved after step 3: 412, reason `stale-version`, with the reel read again so it is current.
 - An error response is `{ reason, message, reel }`. `reason` is a fixed string a UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag`. It is left out, with no `ETag`, for a 428 and for a 404 for an unknown reel or recording.
 

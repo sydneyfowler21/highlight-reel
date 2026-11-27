@@ -1,18 +1,24 @@
 import { ReviewError, type Reel } from '../highlightReel';
 import { type HighlightReelDb } from '../db/client';
 import { findReel, saveReel, type StoredReel } from '../db/reels';
-import { etagFor, reelResponse } from './reelResponse';
+import { etagFor, reelResponse, type ReelResponse } from './reelResponse';
 
 export type ReviewAction = (reel: Reel, clipId: string) => Reel;
 
-export type ReviewResult = {
-  status: 200 | 404 | 409 | 412 | 428;
-  body: object;
-  etag?: string;
+type ErrorBody = {
+  reason: string;
+  message: string;
+  reel?: ReelResponse;
 };
 
+type ErrorStatus = 404 | 409 | 412 | 428;
+
+export type ReviewResult =
+  | { status: 200; body: ReelResponse; etag: string }
+  | { status: ErrorStatus; body: ErrorBody; etag?: string };
+
 function errorWithReel(
-  status: ReviewResult['status'],
+  status: ErrorStatus,
   reason: string,
   message: string,
   stored: StoredReel,

@@ -3,6 +3,7 @@ import { createApp } from '../app';
 import { approve, reject } from '../../highlightReel';
 import { applyMigrations, createDb } from '../../db/client';
 import * as reelStore from '../../db/reels';
+import { reviewClip } from '../reviewClip';
 import { recordings } from '../../db/schema';
 import * as seedGame from '../../fixtures/seedGame';
 import { type Reel } from '../../types';
@@ -107,7 +108,7 @@ describe('POST /reels/:reelId/clips/:clipId/approve', () => {
     expect(reelStore.findReel(db, stored.id)).toEqual(current);
   });
 
-  it.each(['1', 'W/"1"', '"01"', '*', 'not-a-version'])(
+  it.each(['1', 'W/"1"', '"01"', '*', '"1", "2"', 'not-a-version'])(
     'returns 412 for an If-Match of %s, which is not the quoted stored version',
     async (ifMatch) => {
       const { db, stored } = dbWithReel();
@@ -196,6 +197,31 @@ describe('POST /reels/:reelId/clips/:clipId/approve', () => {
       version: 2,
       reel: otherReview,
     });
+  });
+});
+
+describe('reviewClip', () => {
+  it('lets an error that is not a ReviewError escape instead of turning it into a response', () => {
+    const { db, stored } = dbWithReel();
+    const failingAction = () => {
+      throw new Error('a bug in the review action');
+    };
+
+    expect(() =>
+      reviewClip(db, stored.id, 'clip-0', '"1"', failingAction),
+    ).toThrow('a bug in the review action');
+    expect(reelStore.findReel(db, stored.id)).toEqual(stored);
+  });
+
+  it('answers 500 through the route when an error that is not a ReviewError escapes', async () => {
+    const { db, stored } = dbWithReel();
+    jest.spyOn(reelStore, 'saveReel').mockImplementationOnce(() => {
+      throw new Error('the database is gone');
+    });
+
+    const response = await approveRequest(db, stored.id, 'clip-0', '"1"');
+
+    expect(response.status).toBe(500);
   });
 });
 
