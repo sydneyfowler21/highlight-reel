@@ -59,7 +59,7 @@ export function reviewClip(
   ifMatch: string | undefined,
   action: ReviewAction,
 ): ReviewResult {
-  if (ifMatch === undefined || ifMatch.trim() === '') {
+  if (ifMatch === undefined || ifMatch === '') {
     return {
       status: 428,
       body: {
