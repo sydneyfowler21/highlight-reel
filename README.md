@@ -2,440 +2,115 @@
 
 [![CI](https://github.com/sydneyfowler21/highlight-reel/actions/workflows/ci.yml/badge.svg)](https://github.com/sydneyfowler21/highlight-reel/actions/workflows/ci.yml)
 
-This project turns a youth-sports game recording and a messy list of auto-detected moments into a 60-second highlight reel a coach can review and then share with the team. Each raw detection has a play type, a time range, the players involved, and a confidence score. The same play may be detected more than once, some moments sit at the very start or end of the game, some rows are invalid, and there is often more action than will fit in a short recap.
+Highlight Reel turns a youth-sports game recording and a messy list of auto-detected moments into a 60-second highlight reel that a coach reviews one clip at a time. The detections are noisy: the same play is found more than once, some moments run past the start or end of the game, some rows are invalid, and there is more action than fits.
 
-## Rules
+It is a pure TypeScript library with a small HTTP service around it, built with Node 22, Hono, SQLite through Drizzle, and Jest. The full behavior is in [SPEC.md](SPEC.md), which the tests check.
 
-### Library
-
-- Throw a `RangeError` when the recording's duration is not a finite number above 0. A NaN duration would drop every moment, and an infinite one would let clip ends run forever.
-- Throw a `RangeError` when a setting is out of range: `capMs` must be a finite number above 0, and `prePadMs` and `postPadMs` must each be a finite number at or above 0.
-- Skip a raw moment that is missing a required field, has a time or confidence score that is not a finite number, has a player list that is not a list of player ids, ends at or before it starts, lies entirely outside the recording (it ends at or before 0:00, or starts at or after the recording ends), has a confidence score outside 0 to 1, belongs to a different recording, or uses an unrecognized play type.
-- Two raw moments are the same play when they share a recording, have the same play type, and their time ranges overlap or are within one second of each other. Merge those moments into one: earliest start, latest end, highest confidence, and the combined player list.
-- Add `prePadMs` of padding before each merged moment and `postPadMs` after it, two and three seconds by default, then clamp the result so a clip never starts before 0:00 and never ends after the recording does. A moment that is only partly outside the recording is kept, because the play happened in the game, and the clamp trims its clip to the part inside.
-- Give every clip a unique id, `clip-<n>`, numbered from 0 in start order across all clips, candidates included, when the reel is built, never by where a clip sits in the reel. An id never changes, so a clip that joins the reel later keeps its id.
-- Cap the reel at `capMs`, 60 seconds by default. Include as many goals as will fit, with no overlapping clips. Fill any remaining time in this order: save, then big play, then skill, then near miss. Within the same play type, prefer higher confidence. Skip a candidate that overlaps a clip already in the reel or that does not fit the remaining time. Sort the finished reel by start time.
-- A reel does not store whether it is shareable. `isShareable(reel)` works it out from the reel's current clips: true only when the reel has at least one clip, every clip in it is approved, and the total duration is at or under the cap. A newly built reel is never shareable, because every clip in it is pending.
-- A coach reviews a built reel one clip at a time, by id, with `approve` and `reject`, in any order. A clip the coach has not acted on stays pending. Review is not a rebuild: no clip gets a new id, and clips still in the reel keep their place and status. A rebuild from new input, such as re-detected moments or new settings, is a new reel whose ids may differ, and its review starts over.
-- Approve and reject each return a new reel and do not change the reel passed in, like the rest of the pipeline.
-- Approving a pending clip sets it to approved and locks it in place. An approved clip never moves or leaves the reel.
-- Rejecting a pending clip removes it from the reel, sets its status to rejected, and adds it to the end of the reel's list of rejected clips. Then the fill step above runs over the leftover time under the reel's own cap, using the reel's candidates. The clips still in the reel, pending and approved, stay where they are, and their time counts against the leftover.
-- A rejected clip is never a candidate again, so it cannot come back as its own backfill. After a backfill, the backfilled clip is gone from `candidates`, so after any approve or reject every id is in exactly one of `clips`, `candidates`, or `rejected`.
-- A backfilled clip starts as pending and keeps the id it was built with, and the reel stays sorted by start time.
-- Every candidate is pending. A clip is approved only while it is in the reel, and an approved clip never leaves it.
-- Throw a `ReviewError`, a `RangeError` whose message names the id, when the id is not in the reel's clips, candidates, or rejected clips (`unknown-id`); when the id was already rejected (`already-rejected`); when the id belongs to a candidate that is not in the reel (`not-in-reel`); or when the clip is already approved, whether the action is approve or reject (`already-approved`). The error's `reason` holds that string, so the API can choose a status code without parsing the message.
-
-### API
-
-- Every reel the API returns has the body `{ id, recordingId, shareable, clips, candidates, rejected, capMs }` and sends its version as an `ETag` header: an integer that starts at 1, in quotes, like `"1"`. `shareable` is worked out by `isShareable` when the reel is read and is never stored.
-- `GET /reels/:reelId` returns that reel. An unknown reel id returns 404 with reason `reel-not-found`.
-- `GET /recordings/:recordingId/reel` returns the recording's latest reel: the one created most recently, or, when two were created in the same millisecond, the one inserted last. An unknown recording returns 404 with reason `recording-not-found`, and a recording with no reel returns 404 with reason `reel-not-found`.
-- `POST /reels/:reelId/clips/:clipId/approve` approves a clip in the reel, and `POST /reels/:reelId/clips/:clipId/reject` rejects one and backfills the leftover time, as the Library rules describe. The request must send the reel's `ETag` in `If-Match`. The new reel is saved with a conditional save that adds 1 to the version only if nobody saved first, and the response is 200 with the new reel and its new `ETag`.
-- A review request is checked in this order, and the first failure is the response:
-  1. No `If-Match`: 428, reason `if-match-required`.
-  2. Unknown reel id: 404, reason `reel-not-found`.
-  3. `If-Match` is not exactly the reel's current `ETag`: 412, reason `stale-version`. A malformed header, such as `W/"1"` or `*`, is not the `ETag` either, so it gets a 412 too.
-  4. The review action throws a `ReviewError`: 404 for `unknown-id`, otherwise 409, with the error's own reason. Any other error is a bug, so it is not caught and the response is 500.
-  5. The conditional save changes no row, because someone saved after step 3: 412, reason `stale-version`, with the reel read again so it is current.
-- An error response is `{ reason, message, reel }`. `reason` is a fixed string a UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag`. It is left out, with no `ETag`, for a 428 and for a 404 for an unknown reel or recording. An unexpected error is a 500 with reason `internal-error` and a generic message, never a reel or details from the error. The error itself is logged on the server.
-
-## How to run it
+## Try it
 
 ```bash
 npm install
+npm run seed
+npm start
+```
+
+`npm run seed` stores a 10-minute game and builds its reel. In a second terminal, get that reel and keep its id:
+
+```bash
+curl -i localhost:3000/recordings/rec-1/reel
+REEL=$(curl -s localhost:3000/recordings/rec-1/reel | node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).id')
+```
+
+The response is a 200 with `ETag: "1"`. The reel has seven pending clips that fill the 60 seconds, six candidates that did not fit, and `"shareable": false`.
+
+Approve the goal, sending back the version you saw:
+
+```bash
+curl -i -X POST -H 'If-Match: "1"' localhost:3000/reels/$REEL/clips/clip-1/approve
+```
+
+That returns 200 with `ETag: "2"`. Sending a request with the old version again, as a second coach or a stale tab would, returns 412 instead of overwriting the change:
+
+```bash
+curl -i -X POST -H 'If-Match: "1"' localhost:3000/reels/$REEL/clips/clip-0/approve
+```
+
+```json
+{
+  "reason": "stale-version",
+  "message": "Reel … is at \"2\", not \"1\"",
+  "reel": { "…": "the current reel" }
+}
+```
+
+Reject the opening save. The time it frees is backfilled from the candidates, and the approved goal stays in the reel:
+
+```bash
+curl -i -X POST -H 'If-Match: "2"' localhost:3000/reels/$REEL/clips/clip-0/reject
+```
+
+That returns 200 with `ETag: "3"`. `clip-0` is now in `rejected`, and `clip-8`, a 6-second skill from later in the game, has joined the reel as pending.
+
+## How it works
+
+The reel is built by a pipeline of small, pure functions:
+
+1. **Filter** drops invalid or out-of-scope raw moments.
+2. **Merge** combines detections of the same play type that overlap or are within one second of each other.
+3. **Pad and clamp** adds a few seconds before and after each moment and keeps the clip inside the recording.
+4. **Select** fills the cap with goals first, then saves, big plays, skills, and near misses, skipping overlaps and clips that do not fit.
+5. **Sort** puts the reel in game order.
+
+Then a coach reviews it. Approving a clip locks it in the reel. Rejecting one moves it to the rejected list and runs the select step again over the time it freed. A reel is shareable once every clip in it is approved.
+
+The seed game covers each of these cases: two overlapping detections of the same goal, a save at 0:01 and a goal at 9:56 that are clamped to the recording's edges, rows that are invalid or belong to another game, and more action than fits in 60 seconds. The fixture is in [`src/fixtures/seedGame.ts`](src/fixtures/seedGame.ts).
+
+## Design decisions
+
+**A pure library with a thin service around it.** Every rule lives in pure functions in `src/` that take a value and return an updated copy, with no database, clock, or network. The API loads a reel by id, calls one function, and saves the updated reel back under the same id. It never re-implements a rule, and a lint rule stops the library from importing database or HTTP code.
+
+**Noisy input is skipped, not fatal.** Auto-detection is noisy, so raw moments are checked one at a time and a bad row is dropped rather than failing the batch. A moment that runs past the start or end of the game is kept and trimmed, because the play still happened. A bad recording or setting is different: it would make every result wrong, so it throws.
+
+**Clip ids never change.** Ids are given once, when the reel is built. A coach acts on a clip, not on a position in the reel, so a backfill that lands earlier in the game can't change which clip an id points to.
+
+**Approved clips are locked.** Nothing a coach does later drops an approved clip or changes it. A reject backfills only the time around the clips still in the reel, so one decision can't undo another. The reel is always listed in game order, so a backfill from early in the game appears before a clip approved from the end.
+
+**The types rule out impossible reels.** A reel's clips are pending or approved, its candidates are pending, and its rejected clips are rejected. A reel whose lists disagree doesn't compile, so no code has to check for one.
+
+**Two reviewers can't overwrite each other.** Every reel carries its version as an `ETag`, and a review must send it back in `If-Match`. The save is a single conditional `UPDATE` that only writes if the version is still the one the client saw. The slower of two clicks gets a 412 and the current reel instead of overwriting the other change. The version check comes before the review rules, so a stale request about a clip that has since been approved gets a 412, not a 409: that client is acting on a reel it hasn't seen.
+
+**Every error tells the UI what to do next.** An error is `{ reason, message, reel }`: a fixed reason to branch on, a message for people, and the current reel whenever one exists. A UI that retries after a dropped response just shows the reel it gets back. The library reports every repeated action as an error, and the API decides how forgiving to be.
+
+**One row per reel.** The whole reel is stored as JSON in one column, so each review is one read and one write, and a change to the `Reel` type needs no schema change. Stored reels that no longer fit a changed type need a data migration. Reel ids are random UUIDs, because they appear in URLs.
+
+## Tests and checks
+
+```bash
 npm test
 npm run typecheck
 npm run lint
 npm run format:check
 ```
 
-Use Node 22, the version CI runs. Other Node versions may need `make` and a C++ compiler to build better-sqlite3 from source.
+`npm test` runs the Jest tests in [`src/__tests__/`](src/__tests__), [`src/db/__tests__/`](src/db/__tests__), and [`src/api/__tests__/`](src/api/__tests__): each pipeline step, coach review, end-to-end builds of the seed game, the database queries and conditional save, and every API route, including one test per step of the review error order and a simulated race between two saves. The database and API tests run against an in-memory SQLite database. `npm run typecheck` checks the project, tests included, with TypeScript in strict mode. CI runs all four on every push.
 
-`npm test` runs the Jest tests in `src/__tests__/`, `src/db/__tests__/`, and `src/api/__tests__/`: unit tests for each step of the pipeline and for coach review, end-to-end `buildReelFromRawMoments` runs, the database queries and conditional save, and the API routes. The database and API tests run against an in-memory SQLite database. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
+Use Node 22, the version CI runs. Other versions may need `make` and a C++ compiler to build better-sqlite3. `npm run dev` restarts the server on changes, `PORT` changes its port from 3000, and `npm run db:generate` writes a migration from [`src/db/schema.ts`](src/db/schema.ts). `npm run seed` replaces the database file, so restart a running server after it.
 
-`npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run db:migrate` applies migrations to `data/highlight-reel.db`. `npm run seed` deletes that database, applies the migrations, and stores the seed recording plus the reel `buildReelFromRawMoments` builds from it. Restart a running server after `npm run seed`, because the seed replaces the database file.
+## How it was built
 
-`npm start` listens on port 3000, or on `PORT` when it is set, and `npm run dev` restarts the server when files change. `GET /health` returns `{ "status": "ok" }`. The reel routes are described in Rules.
+I wrote the first version of the pipeline by hand. I then refined and extended it with AI agents, in small PRs that work from [AGENTS.md](AGENTS.md) and [SPEC.md](SPEC.md). Each PR names the design options it considered, and every PR got more than one AI review: a backend reviewer, and a QA agent that deliberately breaks the code to check that some test fails. When a review found a recurring problem, the fix became a check rather than a note: a lint rule, a type, or a test. The no-comments rule, the ban on suppressions, and the per-list clip status types all started that way.
 
-## Usage
+The code has no comments, on purpose, and the rule that bans them has no escape hatches. Both choices are as much for the AI agents that work on this repo as for people. A comment is guidance nothing enforces: it can quietly go stale, and an agent will read a comment next to a bad fix as a reason to keep the fix rather than correct it. An `eslint-disable` or `@ts-expect-error` does the same harm, telling the next agent that silencing a check is acceptable.
 
-The included fixture is a 10-minute recording and the raw moments below (`recording` and `rawMoments` in `src/fixtures/seedGame.ts`). Passing that input to `buildReelFromRawMoments` with the default settings produces the reel that follows. `npm test` checks this same run.
+Intent lives in names, structure, and tests instead: fixtures are named for the case they cover, a known bug gets an `it.failing` test named for the bug, and setup a comment would have described is asserted. The `local/no-comments` rule in [`eslint.config.js`](eslint.config.js) enforces this. Inline ESLint config is turned off, so `eslint-disable` has no effect, and every `@ts-` suppression is banned, so lint and type errors get fixed rather than silenced.
 
-`buildReelFromRawMoments` is the entry point, and it checks the recording and settings before running any step. `filterRawMoments`, `mergeRawMoments`, `convertToClips`, and `selectClips` are exported for unit tests and expect input that has already been checked. `convertToClips` takes the padding settings and `selectClips` takes the cap, both required, since filling in defaults is `buildReelFromRawMoments`'s job. `selectClips` also takes the clips to keep, which it starts from: their time counts against the cap, a clip that overlaps one is skipped, and they are returned in `selected` with the clips it adds. A kept clip is never dropped, even when the kept clips already take more than the cap; every other clip then becomes a candidate. The two lists are expected to be separate, with no clip in both. `buildReelFromRawMoments` keeps none, and backfill after a reject keeps the clips still in the reel. `isShareable(reel)` reports whether a reel is ready to share, as defined in Rules. `approve(reel, clipId)` returns a new reel with that pending clip approved, and `reject(reel, clipId)` returns one with that pending clip moved to `rejected` and the leftover time backfilled. Both throw a `ReviewError` as described in Rules. The `Reel` type says which statuses each list holds: `clips` holds pending and approved clips, `candidates` only pending ones, and `rejected` only rejected ones.
+## What I'd add next
 
-`buildReelFromRawMoments` takes an optional third argument, a `ReelSettings` object with `capMs`, `prePadMs`, and `postPadMs`. It defaults to the exported `DEFAULT_REEL_SETTINGS`, `{ capMs: 60000, prePadMs: 2000, postPadMs: 3000 }`. To change one setting, spread the defaults: `buildReelFromRawMoments(recording, rawMoments, { ...DEFAULT_REEL_SETTINGS, capMs: 90000 })`. The reel's `capMs` reports the cap it was built under, and its `rejected` list starts empty.
-
-Input:
-
-```json
-{
-  "recording": {
-    "id": "rec-1",
-    "durationMs": 600000
-  },
-  "rawMoments": [
-    {
-      "recordingId": "rec-1",
-      "type": "goal",
-      "startMs": 58000,
-      "endMs": 62000,
-      "players": ["p1", "p3"],
-      "confidence": 0.8
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "goal",
-      "startMs": 60000,
-      "endMs": 65000,
-      "players": ["p1", "p2"],
-      "confidence": 0.95
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "goal",
-      "startMs": 508000,
-      "endMs": 512000,
-      "players": ["p3"],
-      "confidence": 0.9
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "goal",
-      "startMs": 596000,
-      "endMs": 599000,
-      "players": ["p1"],
-      "confidence": 0.88
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "save",
-      "startMs": 1000,
-      "endMs": 4000,
-      "players": ["p4"],
-      "confidence": 0.8
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "save",
-      "startMs": 120000,
-      "endMs": 124000,
-      "players": ["p5"],
-      "confidence": 0.92
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "save",
-      "startMs": 126000,
-      "endMs": 130000,
-      "players": ["p6"],
-      "confidence": 0.4
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "bigPlay",
-      "startMs": 200000,
-      "endMs": 206000,
-      "players": ["p7"],
-      "confidence": 0.85
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "bigPlay",
-      "startMs": 250000,
-      "endMs": 255000,
-      "players": ["p8"],
-      "confidence": 0.7
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "bigPlay",
-      "startMs": 300000,
-      "endMs": 306000,
-      "players": ["p9"],
-      "confidence": 0.6
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "skill",
-      "startMs": 80000,
-      "endMs": 81000,
-      "players": ["p10"],
-      "confidence": 0.8
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "skill",
-      "startMs": 350000,
-      "endMs": 351000,
-      "players": ["p11"],
-      "confidence": 0.65
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "nearMiss",
-      "startMs": 450000,
-      "endMs": 454000,
-      "players": ["p12"],
-      "confidence": 0.88
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "nearMiss",
-      "startMs": 470000,
-      "endMs": 475000,
-      "players": ["p13"],
-      "confidence": 0.6
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "goal",
-      "startMs": 200000,
-      "endMs": 100000,
-      "players": ["p1"],
-      "confidence": 0.9
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "save",
-      "startMs": 140000,
-      "endMs": 145000,
-      "players": ["p5"],
-      "confidence": 1.4
-    },
-    {
-      "recordingId": "rec-2",
-      "type": "goal",
-      "startMs": 60000,
-      "endMs": 65000,
-      "players": ["p1"],
-      "confidence": 0.99
-    },
-    {
-      "recordingId": "rec-1",
-      "type": "foul",
-      "startMs": 90000,
-      "endMs": 95000,
-      "players": ["p1"],
-      "confidence": 0.9
-    }
-  ]
-}
-```
-
-Output:
-
-```json
-{
-  "clips": [
-    {
-      "id": "clip-0",
-      "startMs": 0,
-      "endMs": 7000,
-      "type": "save",
-      "confidence": 0.8,
-      "players": ["p4"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-1",
-      "startMs": 56000,
-      "endMs": 68000,
-      "type": "goal",
-      "confidence": 0.95,
-      "players": ["p1", "p2", "p3"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-2",
-      "startMs": 78000,
-      "endMs": 84000,
-      "type": "skill",
-      "confidence": 0.8,
-      "players": ["p10"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-3",
-      "startMs": 118000,
-      "endMs": 127000,
-      "type": "save",
-      "confidence": 0.92,
-      "players": ["p5"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-5",
-      "startMs": 198000,
-      "endMs": 209000,
-      "type": "bigPlay",
-      "confidence": 0.85,
-      "players": ["p7"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-11",
-      "startMs": 506000,
-      "endMs": 515000,
-      "type": "goal",
-      "confidence": 0.9,
-      "players": ["p3"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-12",
-      "startMs": 594000,
-      "endMs": 600000,
-      "type": "goal",
-      "confidence": 0.88,
-      "players": ["p1"],
-      "status": "pending"
-    }
-  ],
-  "candidates": [
-    {
-      "id": "clip-4",
-      "startMs": 124000,
-      "endMs": 133000,
-      "type": "save",
-      "confidence": 0.4,
-      "players": ["p6"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-6",
-      "startMs": 248000,
-      "endMs": 258000,
-      "type": "bigPlay",
-      "confidence": 0.7,
-      "players": ["p8"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-7",
-      "startMs": 298000,
-      "endMs": 309000,
-      "type": "bigPlay",
-      "confidence": 0.6,
-      "players": ["p9"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-8",
-      "startMs": 348000,
-      "endMs": 354000,
-      "type": "skill",
-      "confidence": 0.65,
-      "players": ["p11"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-9",
-      "startMs": 448000,
-      "endMs": 457000,
-      "type": "nearMiss",
-      "confidence": 0.88,
-      "players": ["p12"],
-      "status": "pending"
-    },
-    {
-      "id": "clip-10",
-      "startMs": 468000,
-      "endMs": 478000,
-      "type": "nearMiss",
-      "confidence": 0.6,
-      "players": ["p13"],
-      "status": "pending"
-    }
-  ],
-  "rejected": [],
-  "capMs": 60000
-}
-```
-
-## Design
-
-The reel is built as a pipeline of small, pure functions:
-
-1. **Filter** drops invalid or out-of-scope raw moments.
-2. **Merge** combines detections of the same play type that overlap or are within one second of each other into one moment.
-3. **Pad/clamp** adds the configured padding before and after each merged moment, clamps the clip to the recording, and leaves it pending review.
-4. **Select under the cap** fills the configured cap by taking goals first, then the other play types in priority order, skipping overlaps and clips that do not fit.
-5. **Sort** puts the selected clips in chronological order.
-
-> TODO: why it's built this way (author to write)
-
-A newly built reel is never shareable, because every clip still needs review. Each step has its own unit tests, and an end-to-end test runs the whole pipeline against a 10-minute fixture.
-
-The code has no comments, on purpose, and the rule that bans them has no escape hatches. Both choices are as much for the AI agents that work on this repo as for people. A comment is guidance nothing enforces: it can quietly go stale, and an agent will read a comment next to a bad fix as a reason to keep the fix rather than correct it. An `eslint-disable` or `@ts-expect-error` does the same harm, telling the next agent that silencing a check is acceptable. So when something goes wrong, the lesson becomes a lint rule, a type, or a test whose failure says what to fix, not a note someone has to remember to read.
-
-Intent lives in names, structure, and tests instead: fixtures are named for the case they cover, a known bug gets an `it.failing` test named for the bug, and setup a comment would have described is asserted. The `local/no-comments` rule in `eslint.config.js` enforces this. Inline ESLint config is turned off, so `eslint-disable` has no effect, and every `@ts-` suppression is banned, so lint and type errors get fixed rather than silenced. CI runs lint on every push.
-
-## Plan
-
-This started as a library that builds a reel from one game's raw moments. The plan turned it into a small service a coach's UI can call: it stores reels, serves a reel by id, and lets the coach review the reel one clip at a time. Milestones 0 to 3 are done. A milestone is done when tests, typecheck, lint, and format pass, and the behavior it finishes is moved into Rules.
-
-### Decisions
-
-- **Stack.** Node, Hono for HTTP, and SQLite through Drizzle.
-- **The library stays pure. The API works by id.** `approve(reel, clipId)` and `reject(reel, clipId)` take a reel and return a new one, with no database involved. The API is the layer that takes ids: it loads the reel by id, calls the function, and saves the result. A client never sends a full reel.
-- **A reel has its own id.** A recording can have more than one reel, because a rebuild makes a new one. The library's `Reel` type has no id; the storage layer adds the id, the recording id, and a version around it. Clip ids are unique only within a reel, so clip routes are nested under the reel: `/reels/:reelId/clips/:clipId`.
-- **A reel is stored as one row.** The library's whole `Reel` goes in one JSON column, so each review action is one read and one write. See Database.
-- **A review save checks the version with `If-Match`.** Every response that returns a reel sends its version as an `ETag` header. A review request must send that value back in `If-Match`. If the reel has changed since, the API returns 412 instead of overwriting the other change. A request with no `If-Match` returns 428, so no client can skip the check.
-- **Status codes.** Approve and reject throw a `ReviewError`, a `RangeError` with a `reason`. A reason of `unknown-id` becomes 404. `already-approved`, `already-rejected`, and `not-in-reel` become 409.
-- **Conflicts return the current reel.** The library treats every repeated action as an error, approving twice included, because it reports exactly what happened. The API decides how forgiving to be. Every 409 and 412 response includes the current reel and its `ETag`, so a UI that retries after a dropped response just shows the reel it gets back. This one rule covers retries of both approve and reject.
-- **Error body.** Every error response carries the current reel whenever one exists, so a UI never needs a second request to recover. The exact shape is in Rules.
-- **Which error wins.** The order a review request is checked in is in Rules. The version check comes before the review rules, so a stale request about a clip that has since been approved gets a 412, not a 409: the client is acting on a reel it has not seen. That early check only makes the common case answer quickly. The conditional save in the last step is what actually prevents the race.
-
-### Database
-
-- **Tables.** `recordings` has an id and a duration. `reels` has a `seq`, an id, a recording id, a version, a created-at time, and a `reel` column that holds the library's `Reel` as JSON. Storing the whole `Reel` in one column means a change to the `Reel` type does not need a schema change. Stored reels that no longer fit the new type still need a data migration, or a reseed while the seed command is the only source of data.
-- **Reel ids are random UUIDs** from `crypto.randomUUID()`. They appear in URLs, and counting ids would let anyone guess other reels.
-- **The version is an integer that starts at 1.** Every save adds 1. The `ETag` is the version in quotes, like `"3"`, as HTTP requires.
-- **A save only succeeds if nobody saved first.** It runs `UPDATE reels SET reel = ?, version = version + 1 WHERE id = ? AND version = ?`, and if no row changes, the API returns 412. Checking `If-Match` first and saving in a separate step would let two clicks both pass the check.
-- **The latest reel for a recording** is found by ordering on `created_at`, then on `seq`, which increases on each insert, both newest first. The index on `recording_id` and `created_at` covers the lookup.
-- **The version is sent only as the `ETag`**, never in the response body, so it has one source.
-- **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing `src/db`, `src/api`, `hono`, `@hono/node-server`, `drizzle-orm`, or `better-sqlite3`.
-- **SQLite file.** The driver is `better-sqlite3`. The database file is `data/highlight-reel.db`, and `data/` is gitignored. `npm run seed` deletes that file, then migrates and inserts.
-
-### Milestones
-
-Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run in parallel, and milestone 3 starts when both are merged.
-
-#### 0. Shared contract (done)
-
-- [x] `isShareable(reel)` works out whether a reel is shareable, and `Reel` no longer stores it.
-- [x] `Reel` has a `rejected` list, empty when built.
-- [x] `buildReel` is renamed `buildReelFromRawMoments`.
-- [x] The review signatures are agreed, to be built in milestone 2: `approve(reel, clipId): Reel`, `reject(reel, clipId): Reel`, and `ReviewError` with the four reasons above.
-
-#### 1. Database and get-reel API (done)
-
-- [x] The `recordings` and `reels` tables from Database, with migrations.
-- [x] A seed command that stores the seed game's recording and builds its reel.
-- [x] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id and `shareable`, and its version as an `ETag` header. It returns 404 with reason `recording-not-found` when the recording does not exist, and `reel-not-found` when it has no reel.
-- [x] `GET /reels/:reelId` returns one reel the same way, or 404.
-- [x] API tests run against an in-memory SQLite database.
-- [x] A lint rule that stops library code in `src/` from importing database or HTTP code.
-
-#### 2. Coach review in the library (done)
-
-- [x] `approve`, `reject` with backfill, and `ReviewError`, with the review rules now in Rules.
-
-#### 3. Review endpoints (done)
-
-- [x] `POST /reels/:reelId/clips/:clipId/approve` loads the reel, applies `approve`, and saves with the conditional `UPDATE ... WHERE version = ?` from Database. Errors follow the order in Rules. On success, it returns the new reel with its new `ETag`.
-- [x] `POST /reels/:reelId/clips/:clipId/reject` does the same with `reject`.
-- [x] One test for each step of the order, for each endpoint, plus one where a stale `If-Match` names a clip that has since been approved and gets a 412, not a 409.
-
-#### Later, not planned yet
-
-- Endpoints to add recordings and raw moments, and to build a new reel. Until then, the seed command provides the data.
-- A review UI that calls the endpoints.
-- Auth: who counts as a coach for a reel.
-
-### Out of scope
-
-- **Sharing.** Nothing is shared in this version. `isShareable` reports whether a reel is ready, and that is as far as this version goes.
+- **Rebuilds that don't strand a review.** An endpoint to build a new reel for a game. The old reel would record `replacedBy`, and a review on it would get a 409 with reason `reel-replaced` and the current reel, so a coach finds out the next time they act.
+- **Endpoints to add recordings and raw moments.** For now, the seed command provides the data.
+- **A review UI** that calls these endpoints and uses the `reason` on each error to decide what to show.
+- **Auth**, to decide who counts as a coach for a reel.
+- **Sharing.** `isShareable` reports whether a reel is ready, and that is as far as this version goes.
 
 ## License
 
