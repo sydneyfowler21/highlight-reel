@@ -95,13 +95,14 @@ describe('GET /recordings/:recordingId/reel', () => {
       later,
     );
     insertReel(db, seedGame.recording.id, seedGame.expectedReel, earlier);
+    db.update(reels).set({ version: 2 }).where(eq(reels.id, latest.id)).run();
 
     const response = await createApp(db).request(
       `/recordings/${seedGame.recording.id}/reel`,
     );
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('ETag')).toBe('"1"');
+    expect(response.headers.get('ETag')).toBe('"2"');
     expect(await response.json()).toEqual({
       id: latest.id,
       recordingId: seedGame.recording.id,
