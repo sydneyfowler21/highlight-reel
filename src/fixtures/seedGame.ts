@@ -1,4 +1,4 @@
-import { at, clip, rawMoment } from '../__tests__/builders';
+import { at, clip, rawMoment } from './builders';
 import { PlayType, type Recording, type Reel } from '../types';
 
 export const recording: Recording = { id: 'rec-1', durationMs: at('10:00') };

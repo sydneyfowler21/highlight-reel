@@ -7,7 +7,7 @@ import {
   selectClips,
 } from '../highlightReel';
 import { DEFAULT_REEL_SETTINGS } from '../consts';
-import { clip, rawMoment } from './builders';
+import { clip, rawMoment } from '../fixtures/builders';
 import * as fixtures from './fixtures';
 import * as seedGame from '../fixtures/seedGame';
 import { PlayType, type RawMoment, type Recording } from '../types';

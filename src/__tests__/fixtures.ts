@@ -1,4 +1,4 @@
-import { clip, rawMoment } from './builders';
+import { clip, rawMoment } from '../fixtures/builders';
 import { PlayType, type Recording } from '../types';
 
 export const recording10min: Recording = { id: 'rec-1', durationMs: 600_000 };
