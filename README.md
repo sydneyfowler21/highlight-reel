@@ -67,7 +67,7 @@ The seed game exercises each of these cases: two overlapping detections of the s
 
 ## Design decisions
 
-**A pure library with a thin service around it.** Every rule lives in pure functions in `src/` that take data and return new data, with no database, clock, or network. The API loads a reel by id, calls one function, and saves the result. It never re-implements a rule, and a lint rule stops the library from importing database or HTTP code.
+**A pure library with a thin service around it.** Every rule lives in pure functions in `src/` that take a value and return an updated copy, with no database, clock, or network. The API loads a reel by id, calls one function, and saves the updated reel back under the same id. It never re-implements a rule, and a lint rule stops the library from importing database or HTTP code.
 
 **Noisy input is skipped, not fatal.** Auto-detection is noisy, so raw moments are checked one at a time and a bad row is dropped rather than failing the batch. A moment that runs past the start or end of the game is kept and trimmed, because the play still happened. A bad recording or setting is different: it would make every result wrong, so it throws.
 

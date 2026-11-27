@@ -18,7 +18,7 @@ These rules are the contract for Highlight Reel. The tests check them, and agent
 ### Reviewing a reel
 
 - A coach reviews a built reel one clip at a time, by id, with `approve` and `reject`, in any order. A clip the coach has not acted on stays pending. Review is not a rebuild: no clip gets a new id, and clips still in the reel keep their place and status. A rebuild from new input, such as re-detected moments or new settings, is a new reel whose ids may differ, and its review starts over.
-- Approve and reject each return a new reel and do not change the reel passed in, like the rest of the pipeline.
+- Approve and reject update a reel without changing the object passed in: each returns an updated copy, like the rest of the pipeline. It is still the same reel, with the same clips and ids. Only a rebuild makes a new reel.
 - Approving a pending clip sets it to approved and locks it in place. An approved clip never moves or leaves the reel, so every candidate is pending.
 - Rejecting a pending clip removes it from the reel, sets its status to rejected, and adds it to the end of the reel's list of rejected clips. Then the fill step above runs over the leftover time under the reel's own cap, using the reel's candidates. The clips still in the reel, pending and approved, stay where they are, and their time counts against the leftover.
 - A rejected clip is never a candidate again, so it cannot come back as its own backfill. After a backfill, the backfilled clip is gone from `candidates`, so after any approve or reject every id is in exactly one of `clips`, `candidates`, or `rejected`.
@@ -37,7 +37,7 @@ These rules are the contract for Highlight Reel. The tests check them, and agent
 - Every reel the API returns has the body `{ id, recordingId, shareable, clips, candidates, rejected, capMs }` and sends its version as an `ETag` header: an integer that starts at 1, in quotes, like `"1"`. `shareable` is worked out by `isShareable` when the reel is read and is never stored. The version is sent only as the `ETag`, never in the body.
 - `GET /reels/:reelId` returns that reel. An unknown reel id returns 404 with reason `reel-not-found`.
 - `GET /recordings/:recordingId/reel` returns the recording's latest reel: the one created most recently, or, when two were created in the same millisecond, the one inserted last. An unknown recording returns 404 with reason `recording-not-found`, and a recording with no reel returns 404 with reason `reel-not-found`.
-- `POST /reels/:reelId/clips/:clipId/approve` approves a clip in the reel, and `POST /reels/:reelId/clips/:clipId/reject` rejects one and backfills the leftover time, as the Library rules describe. The request must send the reel's `ETag` in `If-Match`. The new reel is saved with a conditional save that adds 1 to the version only if nobody saved first, and the response is 200 with the new reel and its new `ETag`.
+- `POST /reels/:reelId/clips/:clipId/approve` approves a clip in the reel, and `POST /reels/:reelId/clips/:clipId/reject` rejects one and backfills the leftover time, as the Library rules describe. The request must send the reel's `ETag` in `If-Match`. The updated reel is saved over the stored one, under the same reel id, with a conditional save that adds 1 to the version only if nobody saved first. The response is 200 with the updated reel and its new `ETag`.
 - A review request is checked in this order, and the first failure is the response:
   1. No `If-Match`: 428, reason `if-match-required`.
   2. Unknown reel id: 404, reason `reel-not-found`.
