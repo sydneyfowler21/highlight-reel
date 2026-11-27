@@ -7,6 +7,7 @@ import {
   type Recording,
   type Reel,
   type ReelSettings,
+  type ReviewErrorReason,
 } from './types';
 
 export { DEFAULT_REEL_SETTINGS } from './consts';
@@ -18,6 +19,7 @@ export type {
   Recording,
   Reel,
   ReelSettings,
+  ReviewErrorReason,
 } from './types';
 
 type UncheckedMoment = { [Field in keyof RawMoment]?: unknown };
@@ -227,4 +229,65 @@ export function isShareable(reel: Reel): boolean {
     reel.clips.every((clip) => clip.status === 'approved') &&
     totalLengthMs(reel.clips) <= reel.capMs
   );
+}
+
+export class ReviewError extends RangeError {
+  readonly reason: ReviewErrorReason;
+
+  constructor(reason: ReviewErrorReason, message: string) {
+    super(message);
+    this.name = 'ReviewError';
+    this.reason = reason;
+  }
+}
+
+function alreadyRejectedError(clipId: string): ReviewError {
+  return new ReviewError(
+    'already-rejected',
+    `Clip ${clipId} was already rejected`,
+  );
+}
+
+function errorForIdNotInReel(reel: Reel, clipId: string): ReviewError {
+  if (reel.rejected.some((clip) => clip.id === clipId)) {
+    return alreadyRejectedError(clipId);
+  }
+  if (reel.candidates.some((clip) => clip.id === clipId)) {
+    return new ReviewError(
+      'not-in-reel',
+      `Clip ${clipId} is a candidate, not a clip in the reel`,
+    );
+  }
+  return new ReviewError(
+    'unknown-id',
+    `No clip with id ${clipId} in this reel`,
+  );
+}
+
+function findPendingClip(reel: Reel, clipId: string): Clip {
+  const clipInReel = reel.clips.find((clip) => clip.id === clipId);
+  if (!clipInReel) {
+    throw errorForIdNotInReel(reel, clipId);
+  }
+  switch (clipInReel.status) {
+    case 'pending':
+      return clipInReel;
+    case 'approved':
+      throw new ReviewError(
+        'already-approved',
+        `Clip ${clipId} is already approved`,
+      );
+    case 'rejected':
+      throw alreadyRejectedError(clipId);
+  }
+}
+
+export function approve(reel: Reel, clipId: string): Reel {
+  const pendingClip = findPendingClip(reel, clipId);
+  return {
+    ...reel,
+    clips: reel.clips.map((clip) =>
+      clip === pendingClip ? { ...clip, status: 'approved' } : clip,
+    ),
+  };
 }
