@@ -241,30 +241,45 @@ export class ReviewError extends RangeError {
   }
 }
 
-function findPendingClip(reel: Reel, clipId: string): Clip {
-  const clipInReel = reel.clips.find((clip) => clip.id === clipId);
-  if (clipInReel?.status === 'approved') {
-    throw new ReviewError(
-      'already-approved',
-      `Clip ${clipId} is already approved`,
-    );
-  }
-  if (clipInReel) {
-    return clipInReel;
-  }
+function alreadyRejectedError(clipId: string): ReviewError {
+  return new ReviewError(
+    'already-rejected',
+    `Clip ${clipId} was already rejected`,
+  );
+}
+
+function errorForIdNotInReel(reel: Reel, clipId: string): ReviewError {
   if (reel.rejected.some((clip) => clip.id === clipId)) {
-    throw new ReviewError(
-      'already-rejected',
-      `Clip ${clipId} was already rejected`,
-    );
+    return alreadyRejectedError(clipId);
   }
   if (reel.candidates.some((clip) => clip.id === clipId)) {
-    throw new ReviewError(
+    return new ReviewError(
       'not-in-reel',
       `Clip ${clipId} is a candidate, not a clip in the reel`,
     );
   }
-  throw new ReviewError('unknown-id', `No clip with id ${clipId} in this reel`);
+  return new ReviewError(
+    'unknown-id',
+    `No clip with id ${clipId} in this reel`,
+  );
+}
+
+function findPendingClip(reel: Reel, clipId: string): Clip {
+  const clipInReel = reel.clips.find((clip) => clip.id === clipId);
+  if (!clipInReel) {
+    throw errorForIdNotInReel(reel, clipId);
+  }
+  switch (clipInReel.status) {
+    case 'pending':
+      return clipInReel;
+    case 'approved':
+      throw new ReviewError(
+        'already-approved',
+        `Clip ${clipId} is already approved`,
+      );
+    case 'rejected':
+      throw alreadyRejectedError(clipId);
+  }
 }
 
 export function approve(reel: Reel, clipId: string): Reel {

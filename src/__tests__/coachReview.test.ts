@@ -138,6 +138,17 @@ describe('approve', () => {
     );
   });
 
+  it('Approving a clip in the reel whose status is rejected throws already-rejected', () => {
+    const rejectedInReel = clip('clip-5', PlayType.Goal, 0, 10_000, {
+      status: 'rejected',
+    });
+    expectReviewError(
+      () => approve(reelOf([rejectedInReel]), 'clip-5'),
+      'already-rejected',
+      'clip-5',
+    );
+  });
+
   it('Approving a candidate that is not in the reel throws not-in-reel', () => {
     expectReviewError(
       () => approve(reelInReview, 'clip-3'),
