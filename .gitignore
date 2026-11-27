@@ -160,6 +160,9 @@ vite.config.ts.timestamp-*
 # Build output
 build/
 
+# SQLite database
+data/
+
 # OS files
 .DS_Store
 .AppleDouble

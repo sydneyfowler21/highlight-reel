@@ -25,7 +25,11 @@ npm run lint
 npm run format:check
 ```
 
-`npm test` runs the Jest tests in `src/__tests__/`: unit tests for each step of the pipeline plus end-to-end `buildReelFromRawMoments` runs. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
+`npm test` runs the Jest tests in `src/__tests__/` and `src/api/__tests__/`: unit tests for each step of the pipeline, end-to-end `buildReelFromRawMoments` runs, and the health check. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
+
+`npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run db:migrate` applies migrations to `data/highlight-reel.db`. `npm run seed` deletes that database, applies the migrations, and stores the seed recording plus the reel `buildReelFromRawMoments` builds from it.
+
+`npm start` listens on port 3000, or on `PORT` when it is set, and `npm run dev` restarts the server when files change. `GET /health` returns `{ "status": "ok" }`.
 
 ## Usage
 
@@ -374,7 +378,7 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 - **The latest reel for a recording** is the one created most recently. Two reels created in the same millisecond are ordered by when they were inserted.
 - **The response body is** `{ id, recordingId, shareable, clips, candidates, rejected, capMs }`. `shareable` is worked out by `isShareable` when the reel is read and is never stored. The version is sent only as the `ETag`, so it has one source.
 - **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing either folder, `hono`, or `drizzle-orm`.
-- **Left to whoever builds milestone 1:** which SQLite driver to use, where the database file lives (it is gitignored), and whether the seed command resets the database first.
+- **SQLite file.** The driver is `better-sqlite3`. The database file is `data/highlight-reel.db`, and `data/` is gitignored. `npm run seed` deletes that file, then migrates and inserts.
 
 ### Milestones
 
@@ -389,12 +393,12 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 
 #### 1. Database and get-reel API
 
-- [ ] The `recordings` and `reels` tables from Database, with migrations.
-- [ ] A seed command that stores the seed game's recording and builds its reel.
+- [x] The `recordings` and `reels` tables from Database, with migrations.
+- [x] A seed command that stores the seed game's recording and builds its reel.
 - [ ] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id and `shareable`, and its version as an `ETag` header. It returns 404 when the recording does not exist or has no reel.
 - [ ] `GET /reels/:reelId` returns one reel the same way, or 404.
 - [ ] API tests run against an in-memory SQLite database.
-- [ ] A lint rule that stops library code in `src/` from importing database or HTTP code.
+- [x] A lint rule that stops library code in `src/` from importing database or HTTP code.
 
 #### 2. Coach review in the library
 

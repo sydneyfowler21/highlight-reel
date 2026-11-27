@@ -97,5 +97,58 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'warn',
     },
   },
+  {
+    files: ['src/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'hono',
+              message:
+                'Top-level library files cannot import hono, drizzle-orm, src/db, or src/api.',
+            },
+            {
+              name: 'drizzle-orm',
+              message:
+                'Top-level library files cannot import hono, drizzle-orm, src/db, or src/api.',
+            },
+          ],
+          patterns: [
+            {
+              group: [
+                'hono',
+                'hono/*',
+                'drizzle-orm',
+                'drizzle-orm/*',
+                'drizzle-orm/**',
+                './db',
+                './db/*',
+                './db/**',
+                './api',
+                './api/*',
+                './api/**',
+                '../db',
+                '../db/*',
+                '../db/**',
+                '../api',
+                '../api/*',
+                '../api/**',
+                'src/db',
+                'src/db/*',
+                'src/db/**',
+                'src/api',
+                'src/api/*',
+                'src/api/**',
+              ],
+              message:
+                'Top-level library files cannot import hono, drizzle-orm, src/db, or src/api.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
 );
