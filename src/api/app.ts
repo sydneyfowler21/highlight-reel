@@ -44,6 +44,15 @@ export function createApp(db: HighlightReelDb) {
       500,
     );
   });
+  app.notFound((c) =>
+    c.json(
+      {
+        reason: 'route-not-found',
+        message: `No route for ${c.req.method} ${c.req.path}`,
+      },
+      404,
+    ),
+  );
   app.get('/health', (c) => c.json({ status: 'ok' }));
   app.get('/reels/:reelId', (c) => {
     const reelId = c.req.param('reelId');

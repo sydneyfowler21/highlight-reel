@@ -263,6 +263,37 @@ describe('reject', () => {
     expect(afterReject.capMs).toBe(45_000);
   });
 
+  it('After a reject the candidates come back in fill order: play type first, then higher confidence', () => {
+    const lowSave = clip('clip-5', PlayType.Save, 300_000, 370_000, {
+      confidence: 0.5,
+    });
+    const highSave = clip('clip-6', PlayType.Save, 400_000, 470_000);
+    const bigPlay = clip('clip-7', PlayType.BigPlay, 500_000, 570_000, {
+      confidence: 0.8,
+    });
+    const skill = clip('clip-3', PlayType.Skill, 200_000, 270_000, {
+      confidence: 0.6,
+    });
+    const nearMiss = clip('clip-1', PlayType.NearMiss, 100_000, 170_000);
+    const reelWithUnsortedCandidates: Reel = {
+      clips: [clip('clip-0', PlayType.Skill, 0, 50_000)],
+      candidates: [nearMiss, skill, lowSave, highSave, bigPlay],
+      rejected: [],
+      capMs: 60_000,
+    };
+
+    const afterReject = reject(reelWithUnsortedCandidates, 'clip-0');
+
+    expect(afterReject.clips).toEqual([]);
+    expect(idsOf(afterReject.candidates)).toEqual([
+      'clip-6',
+      'clip-5',
+      'clip-7',
+      'clip-3',
+      'clip-1',
+    ]);
+  });
+
   it('After a backfill neither the rejected clip nor the backfilled clip is a candidate', () => {
     const afterReject = reject(reelReadyForBackfill, 'clip-4');
     expect(idsOf(afterReject.candidates)).not.toContain('clip-4');

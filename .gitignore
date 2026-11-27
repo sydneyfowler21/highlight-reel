@@ -161,6 +161,7 @@ vite.config.ts.timestamp-*
 build/
 
 data/
+*.db
 
 # OS files
 .DS_Store
