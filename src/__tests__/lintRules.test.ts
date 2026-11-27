@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { beforeAll, describe, expect, it } from '@jest/globals';
 
 const repoRoot = join(__dirname, '..', '..');
@@ -13,7 +13,18 @@ function lintAll(cases: { filePath: string; code: string }[]): LintResult[] {
   const script = `
     import { ESLint } from 'eslint';
     const cases = JSON.parse(process.env.LINT_CASES);
-    const eslint = new ESLint({ cwd: process.env.REPO_ROOT });
+    const eslint = new ESLint({
+      cwd: process.env.REPO_ROOT,
+      overrideConfig: {
+        languageOptions: {
+          parserOptions: {
+            projectService: {
+              allowDefaultProject: JSON.parse(process.env.LINT_CASE_PATHS),
+            },
+          },
+        },
+      },
+    });
     const results = [];
     for (const item of cases) {
       const [result] = await eslint.lintText(item.code, { filePath: item.filePath });
@@ -34,6 +45,9 @@ function lintAll(cases: { filePath: string; code: string }[]): LintResult[] {
         ...process.env,
         REPO_ROOT: repoRoot,
         LINT_CASES: JSON.stringify(cases),
+        LINT_CASE_PATHS: JSON.stringify([
+          ...new Set(cases.map((item) => relative(repoRoot, item.filePath))),
+        ]),
       },
     },
   );
@@ -110,5 +124,41 @@ describe('library import boundary', () => {
   it('allows database code to import better-sqlite3 and drizzle-orm', () => {
     expect(allowedResult?.errorCount).toBe(0);
     expect(allowedResult?.ruleIds).not.toContain('no-restricted-imports');
+  });
+});
+
+const statusType = "type Status = 'pending' | 'approved';\n";
+
+describe('switch exhaustiveness', () => {
+  let results: LintResult[] = [];
+
+  beforeAll(() => {
+    results = lintAll(
+      [
+        "export function label(status: Status): string {\n  switch (status) {\n    case 'pending':\n      return 'to review';\n  }\n  return 'unknown';\n}\n",
+        "export function label(status: Status): string {\n  switch (status) {\n    case 'pending':\n      return 'to review';\n    default:\n      return 'done';\n  }\n}\n",
+        "export function label(status: Status): string {\n  switch (status) {\n    case 'pending':\n      return 'to review';\n    case 'approved':\n      return 'done';\n  }\n}\n",
+      ].map((body) => ({
+        filePath: join(repoRoot, 'src/switchExample.ts'),
+        code: statusType + body,
+      })),
+    );
+  });
+
+  const switchRuleError = {
+    errorCount: 1,
+    ruleIds: ['@typescript-eslint/switch-exhaustiveness-check'],
+  };
+
+  it('rejects a switch over a union that leaves out a case as an error', () => {
+    expect(results[0]).toEqual(switchRuleError);
+  });
+
+  it('rejects a switch that hides a missing case behind default as an error', () => {
+    expect(results[1]).toEqual(switchRuleError);
+  });
+
+  it('allows a switch that handles every case with no errors or warnings', () => {
+    expect(results[2]).toEqual({ errorCount: 0, ruleIds: [] });
   });
 });
