@@ -81,3 +81,99 @@ describe('GET /reels/:reelId', () => {
     });
   });
 });
+
+describe('GET /recordings/:recordingId/reel', () => {
+  const earlier = new Date('2026-11-01T10:00:00.000Z');
+  const later = new Date('2026-11-01T10:05:00.000Z');
+
+  it('returns the latest reel for the recording, with its version as the ETag', async () => {
+    const db = seededDb();
+    const latest = insertReel(
+      db,
+      seedGame.recording.id,
+      reviewedReelWith45sCap,
+      later,
+    );
+    insertReel(db, seedGame.recording.id, seedGame.expectedReel, earlier);
+    db.update(reels).set({ version: 2 }).where(eq(reels.id, latest.id)).run();
+
+    const response = await createApp(db).request(
+      `/recordings/${seedGame.recording.id}/reel`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('ETag')).toBe('"2"');
+    expect(await response.json()).toEqual({
+      id: latest.id,
+      recordingId: seedGame.recording.id,
+      shareable: true,
+      ...reviewedReelWith45sCap,
+    });
+  });
+
+  it('returns the reel inserted last when two reels share a created-at time', async () => {
+    const db = seededDb();
+    insertReel(db, seedGame.recording.id, seedGame.expectedReel, later);
+    const insertedLast = insertReel(
+      db,
+      seedGame.recording.id,
+      seedGame.expectedReel,
+      later,
+    );
+
+    const response = await createApp(db).request(
+      `/recordings/${seedGame.recording.id}/reel`,
+    );
+
+    expect(await response.json()).toMatchObject({ id: insertedLast.id });
+  });
+
+  it('ignores a newer reel that belongs to a different recording', async () => {
+    const db = seededDb();
+    db.insert(recordings).values({ id: 'rec-2', durationMs: 600_000 }).run();
+    const ownReel = insertReel(
+      db,
+      seedGame.recording.id,
+      seedGame.expectedReel,
+      earlier,
+    );
+    insertReel(db, 'rec-2', seedGame.expectedReel, later);
+
+    const response = await createApp(db).request(
+      `/recordings/${seedGame.recording.id}/reel`,
+    );
+
+    expect(await response.json()).toMatchObject({ id: ownReel.id });
+  });
+
+  it('returns 404 with reason recording-not-found and no reel for an unknown recording', async () => {
+    const db = seededDb();
+    insertReel(db, seedGame.recording.id, seedGame.expectedReel);
+
+    const response = await createApp(db).request(
+      '/recordings/no-such-recording/reel',
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('ETag')).toBeNull();
+    expect(await response.json()).toEqual({
+      reason: 'recording-not-found',
+      message: 'No recording with id no-such-recording',
+    });
+  });
+
+  it('returns 404 with reason reel-not-found and no reel for a recording that has no reel', async () => {
+    const db = seededDb();
+
+    const response = await createApp(db).request(
+      `/recordings/${seedGame.recording.id}/reel`,
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get('ETag')).toBeNull();
+    expect(await response.json()).toEqual({
+      reason: 'reel-not-found',
+      message: `Recording ${seedGame.recording.id} has no reel`,
+    });
+  });
+});

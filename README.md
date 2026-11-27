@@ -367,7 +367,7 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 - **A review save checks the version with `If-Match`.** Every response that returns a reel sends its version as an `ETag` header. A review request must send that value back in `If-Match`. If the reel has changed since, the API returns 412 instead of overwriting the other change. A request with no `If-Match` returns 428, so no client can skip the check.
 - **Status codes.** Approve and reject throw a `ReviewError`, a `RangeError` with a `reason`. A reason of `unknown-id` becomes 404. `already-approved`, `already-rejected`, and `not-in-reel` become 409. An invalid request body is 400.
 - **Conflicts return the current reel.** The library treats every repeated action as an error, approving twice included, because it reports exactly what happened. The API decides how forgiving to be. Every 409 and 412 response includes the current reel and its `ETag`, so a UI that retries after a dropped response just shows the reel it gets back. This one rule covers retries of both approve and reject.
-- **Error body.** Every error response is `{ reason, message, reel }`. `reason` is a fixed string the UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag` whenever the reel exists. It is left out for a missing `If-Match` or an unknown reel id.
+- **Error body.** Every error response is `{ reason, message, reel }`. `reason` is a fixed string the UI can branch on, and `message` is for people. `reel` is the current reel in the normal response shape, sent with its `ETag` whenever the reel exists. It is left out for a missing `If-Match`, an unknown reel id, or an unknown recording id.
 - **Which error wins.** A review request is checked in this order, and the first failure is the response:
   1. No `If-Match`: 428, reason `if-match-required`.
   2. Unknown reel id: 404, reason `reel-not-found`.
@@ -401,13 +401,13 @@ Milestone 0 is the contract between the two tracks. Milestones 1 and 2 then run 
 - [x] `buildReel` is renamed `buildReelFromRawMoments`.
 - [x] The review signatures are agreed, to be built in milestone 2: `approve(reel, clipId): Reel`, `reject(reel, clipId): Reel`, and `ReviewError` with the four reasons above.
 
-#### 1. Database and get-reel API
+#### 1. Database and get-reel API (done)
 
 - [x] The `recordings` and `reels` tables from Database, with migrations.
 - [x] A seed command that stores the seed game's recording and builds its reel.
-- [ ] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id and `shareable`, and its version as an `ETag` header. It returns 404 when the recording does not exist or has no reel.
+- [x] `GET /recordings/:recordingId/reel` returns the recording's latest reel, with its reel id and `shareable`, and its version as an `ETag` header. It returns 404 with reason `recording-not-found` when the recording does not exist, and `reel-not-found` when it has no reel.
 - [x] `GET /reels/:reelId` returns one reel the same way, or 404.
-- [ ] API tests run against an in-memory SQLite database.
+- [x] API tests run against an in-memory SQLite database.
 - [x] A lint rule that stops library code in `src/` from importing database or HTTP code.
 
 #### 2. Coach review in the library (done)
