@@ -1,8 +1,9 @@
 import { serve } from '@hono/node-server';
 import { createApp } from './app';
+import { parsePort } from './parsePort';
 import { applyMigrations, createDb, DEFAULT_DB_PATH } from '../db/client';
 
-const port = process.env.PORT ? Number(process.env.PORT) : 3000;
+const port = parsePort(process.env.PORT);
 const db = createDb(DEFAULT_DB_PATH);
 applyMigrations(db);
 

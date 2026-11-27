@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "62da169a-2425-49d3-b97c-7807f9c537a3",
+  "id": "52bfdc1b-d1bd-43ed-861d-0da541f42366",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "recordings": {
@@ -31,10 +31,17 @@
     "reels": {
       "name": "reels",
       "columns": {
+        "seq": {
+          "name": "seq",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -68,14 +75,34 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "reels_id_unique": {
+          "name": "reels_id_unique",
+          "columns": [
+            "id"
+          ],
+          "isUnique": true
+        },
+        "reels_recording_id_created_at_idx": {
+          "name": "reels_recording_id_created_at_idx",
+          "columns": [
+            "recording_id",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {
         "reels_recording_id_recordings_id_fk": {
           "name": "reels_recording_id_recordings_id_fk",
           "tableFrom": "reels",
           "tableTo": "recordings",
-          "columnsFrom": ["recording_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "recording_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "no action",
           "onUpdate": "no action"
         }

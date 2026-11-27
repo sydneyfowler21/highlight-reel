@@ -58,10 +58,18 @@ export default tseslint.config(
     languageOptions: {
       sourceType: 'commonjs',
       globals: {
+        __dirname: 'readonly',
+        __filename: 'readonly',
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
       },
+    },
+  },
+  {
+    files: ['src/db/repoRoot.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
     },
   },
   {

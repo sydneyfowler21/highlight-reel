@@ -29,7 +29,7 @@ Use Node 22, the version CI runs. Other Node versions may need `make` and a C++ 
 
 `npm test` runs the Jest tests in `src/__tests__/` and `src/api/__tests__/`: unit tests for each step of the pipeline, end-to-end `buildReelFromRawMoments` runs, and the health check. Tests marked `it.failing` record known bugs; they pass while the bug exists and fail once it is fixed, as a reminder to switch them to `it`. `npm run typecheck` type-checks the project, including the tests, with TypeScript in strict mode. `npm run lint` runs ESLint. `npm run format:check` checks formatting with Prettier.
 
-`npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run db:migrate` applies migrations to `data/highlight-reel.db`. `npm run seed` deletes that database, applies the migrations, and stores the seed recording plus the reel `buildReelFromRawMoments` builds from it.
+`npm run db:generate` writes a migration from `src/db/schema.ts`. `npm run db:migrate` applies migrations to `data/highlight-reel.db`. `npm run seed` deletes that database, applies the migrations, and stores the seed recording plus the reel `buildReelFromRawMoments` builds from it. Restart a running server after `npm run seed`, because the seed replaces the database file.
 
 `npm start` listens on port 3000, or on `PORT` when it is set, and `npm run dev` restarts the server when files change. `GET /health` returns `{ "status": "ok" }`.
 
@@ -373,13 +373,13 @@ Today this is a library that builds a reel from one game's raw moments. The plan
 
 ### Database
 
-- **Tables.** `recordings` has an id and a duration. `reels` has an id, a recording id, a version, a created-at time, and a `reel` column that holds the library's `Reel` as JSON. Storing the whole `Reel` in one column means a change to the `Reel` type does not need a schema change.
+- **Tables.** `recordings` has an id and a duration. `reels` has a `seq`, an id, a recording id, a version, a created-at time, and a `reel` column that holds the library's `Reel` as JSON. Storing the whole `Reel` in one column means a change to the `Reel` type does not need a schema change.
 - **Reel ids are random UUIDs** from `crypto.randomUUID()`. They appear in URLs, and counting ids would let anyone guess other reels.
 - **The version is an integer that starts at 1.** Every save adds 1. The `ETag` is the version in quotes, like `"3"`, as HTTP requires.
 - **A save only succeeds if nobody saved first.** It runs `UPDATE reels SET reel = ?, version = version + 1 WHERE id = ? AND version = ?`, and if no row changes, the API returns 412. Checking `If-Match` first and saving in a separate step would let two clicks both pass the check.
-- **The latest reel for a recording** is the one created most recently. Two reels created in the same millisecond are ordered by when they were inserted.
+- **The latest reel for a recording** is the one created most recently. Two reels created in the same millisecond are ordered by `seq`, which increases on each insert, so the one inserted last has the higher `seq`.
 - **The response body is** `{ id, recordingId, shareable, clips, candidates, rejected, capMs }`. `shareable` is worked out by `isShareable` when the reel is read and is never stored. The version is sent only as the `ETag`, so it has one source.
-- **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing either folder, `hono`, or `drizzle-orm`.
+- **Folder layout.** The library stays in the top level of `src/`. Database code goes in `src/db/` and HTTP code in `src/api/`. A lint rule stops the top-level library files from importing `src/db`, `src/api`, `hono`, `@hono/node-server`, `drizzle-orm`, or `better-sqlite3`.
 - **SQLite file.** The driver is `better-sqlite3`. The database file is `data/highlight-reel.db`, and `data/` is gitignored. `npm run seed` deletes that file, then migrates and inserts.
 
 ### Milestones
